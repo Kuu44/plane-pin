@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-24T00:00:00Z",
+  "title": "Design System: Plane Pin",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Plane Signal",
+        "canonical": "#5b43d6",
+        "tonalRamp": ["#170d52", "#281880", "#3a25ad", "#5b43d6", "#7c68e3", "#a89aef", "#d2caf8", "#f0edff"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Cool Canvas",
+        "canonical": "#f6f7fb",
+        "tonalRamp": ["#202126", "#383a42", "#555761", "#737681", "#9699a5", "#b9bbc5", "#dfe0e7", "#f6f7fb"]
+      }
+    },
+    "shadows": [
+      {
+        "name": "action",
+        "value": "0 5px 14px rgba(91, 67, 214, 0.25)",
+        "purpose": "Primary actions and the empty-state glyph."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "140ms ease-out",
+        "purpose": "Hover and checked-state feedback when reduced motion is not requested."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "minimum-window",
+        "value": "320px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single high-emphasis action.",
+      "html": "<button class=\"ds-primary\">Connect Plane</button>",
+      "css": ".ds-primary { min-height: 40px; padding: 0 15px; border: 0; border-radius: 10px; color: #fff; background: #5b43d6; font: 700 14px 'Segoe UI', sans-serif; box-shadow: 0 5px 14px rgba(91,67,214,.25); } .ds-primary:hover { background: #4931c4; } .ds-primary:focus-visible { outline: 3px solid rgba(91,67,214,.28); outline-offset: 2px; }"
+    },
+    {
+      "name": "Connection Input",
+      "kind": "input",
+      "description": "Compact setup field.",
+      "html": "<input class=\"ds-input\" value=\"engineering\" aria-label=\"Workspace slug\">",
+      "css": ".ds-input { min-height: 40px; padding: 9px 11px; border: 1px solid #cfd1db; border-radius: 9px; color: #171821; background: #fafafd; font: 14px 'Segoe UI', sans-serif; } .ds-input:focus { border-color: #5b43d6; outline: 3px solid rgba(91,67,214,.28); outline-offset: 2px; }"
+    },
+    {
+      "name": "Pin Toggle",
+      "kind": "custom",
+      "description": "Always-on-top state control.",
+      "html": "<button class=\"ds-pin\" aria-pressed=\"true\">⌖&nbsp; On top</button>",
+      "css": ".ds-pin { padding: 7px 10px; border: 0; border-radius: 9px; color: #4a33c4; background: #ebe8ff; font: 650 12px 'Segoe UI', sans-serif; } .ds-pin:hover { background: #ddd7ff; } .ds-pin:focus-visible { outline: 3px solid rgba(91,67,214,.28); outline-offset: 2px; }"
+    },
+    {
+      "name": "Task Row",
+      "kind": "custom",
+      "description": "Flat, aligned active-work item.",
+      "html": "<div class=\"ds-task\"><i></i><div><strong>Prepare launch brief</strong><small>MKTG-71 · In Progress</small></div></div>",
+      "css": ".ds-task { display: grid; grid-template-columns: 8px 1fr; gap: 11px; padding: 15px 18px; border-bottom: 1px solid #e4e5ec; color: #171821; background: #f9f9fc; font: 14px 'Segoe UI', sans-serif; } .ds-task:hover { background: #fff; } .ds-task i { width: 8px; height: 8px; margin-top: 5px; border-radius: 3px; background: #d28a26; } .ds-task strong, .ds-task small { display: block; } .ds-task small { margin-top: 6px; color: #686b78; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Magnetic Work Rail",
+    "overview": "A narrow physical strip attached to the edge of a monitor: calm, dense, and immediately legible.",
+    "keyCharacteristics": ["Quiet neutral canvas with one restrained violet accent.", "Information-first rows instead of a card grid.", "Compact controls that remain unmistakably interactive."],
+    "rules": [{"name": "The Signal Rule", "body": "Violet marks selection, action, or live state; it is not background decoration.", "section": "colors"}],
+    "dos": ["Do keep the in-progress list visible without navigation.", "Do use native platform affordances for window behavior.", "Do make connection and empty states actionable."],
+    "donts": ["Don't turn each task into a floating dashboard card.", "Don't expose API credentials in renderer code or persisted plain text.", "Don't add task-editing controls until read-only retrieval is proven."]
+  }
+}

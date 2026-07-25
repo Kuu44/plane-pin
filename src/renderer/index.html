@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>Plane Pin</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <!--
+      THESIS: A magnetic work rail, not a miniature project dashboard.
+      OWN-WORLD: Cool paper, crisp ink, and one restrained Plane-violet signal.
+      STORY: Connect once, keep active work visible, refresh without leaving the current app.
+      FIRST VIEWPORT: Compact header, pin switch, status line, then the task rail.
+      FORM: Single vertical operating rail; selected directly from the brief.
+    -->
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="product-mark"><span aria-hidden="true"></span> Plane Pin</p>
+          <p id="status" class="status">Not connected</p>
+        </div>
+        <label class="pin-toggle" title="Keep Plane Pin above other windows">
+          <input id="pin" type="checkbox">
+          <span class="pin-icon" aria-hidden="true">⌖</span>
+          <span>On top</span>
+        </label>
+      </header>
+
+      <section class="toolbar" aria-label="Task controls">
+        <div>
+          <h1>In progress</h1>
+          <p id="count">Connect Plane to load tasks.</p>
+        </div>
+        <div class="actions">
+          <button id="refresh" class="icon-button" type="button" aria-label="Refresh tasks" title="Refresh tasks">↻</button>
+          <button id="settings-open" class="icon-button" type="button" aria-label="Connection settings" title="Connection settings">···</button>
+        </div>
+      </section>
+
+      <section id="task-region" class="task-region" aria-live="polite">
+        <div id="empty" class="empty-state">
+          <div class="empty-glyph" aria-hidden="true">↗</div>
+          <h2>Your active work, within reach.</h2>
+          <p>Connect your self-hosted Plane workspace to see tasks in the Started group.</p>
+          <button id="connect" class="primary-button" type="button">Connect Plane</button>
+        </div>
+        <ul id="task-list" class="task-list" hidden></ul>
+      </section>
+    </main>
+
+    <dialog id="settings" aria-labelledby="settings-title">
+      <form id="settings-form" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <h2 id="settings-title">Plane connection</h2>
+            <p>Stored securely and never shown again after saving.</p>
+          </div>
+          <button id="settings-close" class="icon-button" type="button" aria-label="Close settings">×</button>
+        </div>
+
+        <label>
+          Plane URL
+          <input id="base-url" type="url" placeholder="https://plane.example.com" required>
+          <small>Use the start of a task URL, before the workspace name. Example: <strong>https://plane.example.com</strong>.</small>
+        </label>
+        <label>
+          Workspace slug
+          <input id="workspace-slug" type="text" placeholder="engineering" required>
+          <small>Use the first part after the domain. In <strong>/engineering/browse/MKTG-17/</strong>, enter <strong>engineering</strong>.</small>
+        </label>
+        <label>
+          Project ID or key
+          <input id="project-id" type="text" placeholder="MKTG" required>
+          <small>Use the letters before the task number: <strong>MKTG</strong>. A project UUID also works.</small>
+        </label>
+        <label>
+          Personal access token
+          <span class="token-field">
+            <input id="api-token" type="password" autocomplete="off" placeholder="plane_api_…" required>
+            <button id="token-visibility" type="button" aria-pressed="false">Show</button>
+          </span>
+          <small id="token-hint">Create one in Plane → Profile settings → Personal access tokens.</small>
+        </label>
+
+        <p id="form-error" class="form-error" role="alert"></p>
+        <button id="save" class="primary-button" type="submit">Save and connect</button>
+      </form>
+    </dialog>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

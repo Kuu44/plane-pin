@@ -1,0 +1,9 @@
+node_modules/
+dist/
+outputs/
+work/
+*.log
+.DS_Store
+/Plane-Pin-Preview.png
+/Plane-Pin-Setup-*.exe
+/Plane-Pin-Source-*.zip

@@ -1,0 +1,99 @@
+---
+name: Plane Pin
+description: A compact desktop rail for active Plane work.
+colors:
+  accent: "#5b43d6"
+  accent-hover: "#4931c4"
+  canvas: "#f6f7fb"
+  surface: "#ffffff"
+  ink: "#171821"
+  muted: "#686b78"
+  divider: "#e4e5ec"
+typography:
+  body:
+    fontFamily: "Segoe UI Variable, Segoe UI, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.35
+  title:
+    fontFamily: "Segoe UI Variable, Segoe UI, system-ui, sans-serif"
+    fontSize: "19px"
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: "-0.02em"
+rounded:
+  control: "9px"
+  action: "10px"
+  dialog: "16px"
+spacing:
+  compact: "8px"
+  row: "15px 18px"
+  section: "18px"
+components:
+  button-primary:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.surface}"
+    rounded: "{rounded.action}"
+    height: "40px"
+  button-primary-hover:
+    backgroundColor: "{colors.accent-hover}"
+    textColor: "{colors.surface}"
+    rounded: "{rounded.action}"
+---
+
+# Design System: Plane Pin
+
+## Overview
+
+**Creative North Star: "The Magnetic Work Rail"**
+
+Plane Pin should feel like a narrow physical strip attached to the edge of a monitor: calm, dense, and immediately legible. It is an operating surface, so expression lives in precise alignment, a single Plane-purple signal, and a compact silhouette rather than decorative chrome.
+
+**Key Characteristics:**
+
+- Quiet neutral canvas with one restrained violet accent.
+- Information-first rows instead of a card grid.
+- Compact controls that remain unmistakably interactive.
+
+## Colors
+
+Restrained: cool near-white and ink neutrals, with violet reserved for active state and focus.
+
+**The Signal Rule.** Violet marks selection, action, or live state; it is not background decoration.
+
+## Typography
+
+Use the native Segoe UI system stack for platform familiarity and dependable rendering. Weight and spacing create hierarchy; no display face is needed. Titles use a compact 19px/1.2 scale, while rows use a 14px/1.35 scale.
+
+## Layout
+
+One vertical rail: title and pin control, connection/status strip, then a scrollable task list. The window stays useful from 320px wide. Sections use 18px insets and task rows use 15px × 18px padding.
+
+## Elevation & Depth
+
+The app is flat internally. Window elevation belongs to the operating system; inside, tonal surfaces and 1px separators establish depth. Action shadows use a visible vertical offset and soft blur.
+
+## Shapes
+
+Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows remain rectilinear so identifiers, names, and metadata align into a stable reading rhythm.
+
+## Components
+
+- **Primary action:** violet fill, white label, 40px minimum height, 10px corners.
+- **Pin control:** compact tonal toggle whose checked state uses a pale violet field.
+- **Task row:** border-separated, flat list item with an 8px priority marker and aligned metadata.
+- **Input:** cool neutral field with a 1px divider-colored border and violet focus state.
+
+## Do's and Don'ts
+
+### Do:
+
+- **Do** keep the in-progress list visible without navigation.
+- **Do** use native platform affordances for window behavior.
+- **Do** make connection and empty states actionable.
+
+### Don't:
+
+- **Don't** turn each task into a floating dashboard card.
+- **Don't** expose API credentials in renderer code or persisted plain text.
+- **Don't** add task-editing controls until read-only retrieval is proven.
