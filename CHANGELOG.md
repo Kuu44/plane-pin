@@ -6,6 +6,13 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-25
+
+### Fixed
+
+- Workspace discovery now skips Plane projects the connected account cannot access instead of failing the entire connection.
+- Rebuilt every platform package from the same combined source so the Windows installer includes the inaccessible-project fix alongside the v0.7 water-blue UI.
+
 ## [0.7.0] - 2026-07-25
 
 ### Changed
