@@ -26,9 +26,9 @@ Windows first, used beside day-to-day work. macOS and Linux packages are built f
 
 - Electron desktop app.
 - Guided self-hosted Plane setup from a page URL and personal access token.
-- Automatic account, project, and workflow-state discovery with a profile URL fallback.
-- Shows work items assigned to the configured profile across one or all accessible projects.
-- Shows all assigned work or filters by several exact project state names.
+- Automatic account, member, project, and workflow-state discovery with a profile URL fallback.
+- Shows work items assigned to any selected workspace members across any selected accessible projects.
+- Filters by any combination of exact workflow-state names.
 - Can group by project, stay above other windows, or hide all app and window chrome in task-only mode.
 - Stays in the tray when closed or minimised, with a right-click menu that ends in a real exit.
 - Moves by press-and-hold anywhere while the chrome is hidden.

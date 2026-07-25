@@ -6,6 +6,24 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-25
+
+### Added
+
+- Added workspace-member discovery and member multiselects to onboarding and Settings, allowing one person, several people, everyone, or nobody to be shown.
+- Added separate onboarding pages for members, projects, and workflow states, each with Select all and Select none actions.
+
+### Changed
+
+- Replaced project and workflow-state mode toggles with consistent multiselect lists that start fully selected.
+- Darkened the water-wave texture in both themes; every gradient stop now gives white button text at least 6.0:1 contrast.
+
+### Fixed
+
+- Task filtering now applies selected assignees and exact state names locally after expanding Plane task data, avoiding unreliable self-hosted server-side assignee filtering.
+- Preserved v0.8 filter data when quick settings are changed and retained legacy all-project/all-state behavior during settings migration.
+- Normalized spacing between member, project, and workflow-state selectors.
+
 ## [0.7.1] - 2026-07-25
 
 ### Fixed

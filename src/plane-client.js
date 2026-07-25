@@ -80,6 +80,12 @@ async function fetchProjects(baseUrl, workspace, apiToken, request) {
   return fetchPages(projectsUrl, apiToken, request);
 }
 
+async function fetchMembers(baseUrl, workspace, apiToken, request) {
+  const membersUrl = new URL(`/api/v1/workspaces/${workspace}/members/`, baseUrl);
+  membersUrl.searchParams.set("per_page", "100");
+  return fetchPages(membersUrl, apiToken, request);
+}
+
 async function fetchStates(baseUrl, workspace, projectId, apiToken, request) {
   const statesUrl = new URL(
     `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/states/`,
@@ -94,14 +100,25 @@ function accessibleProjects(projects) {
 }
 
 function selectProjects(projects, config) {
-  const selected = config.projectScope === "single"
-    ? projects.filter((project) => project.id === config.projectId
-      || String(project.identifier).toLowerCase() === String(config.projectId).toLowerCase())
-    : projects;
-  if (config.projectScope === "single" && selected.length === 0) {
-    throw new Error(`No Plane project uses the ID or key "${config.projectId}".`);
-  }
-  return selected;
+  if (!Array.isArray(config.projectIds)) return projects;
+  const selectedIds = new Set(config.projectIds.map((id) => String(id).toLocaleLowerCase()));
+  return projects.filter((project) =>
+    selectedIds.has(String(project.id).toLocaleLowerCase())
+    || selectedIds.has(String(project.identifier).toLocaleLowerCase()));
+}
+
+function memberName(member) {
+  return String(member.display_name
+    || [member.first_name, member.last_name].filter(Boolean).join(" ")
+    || member.email
+    || "Plane user");
+}
+
+function taskAssigneeIds(task) {
+  const assignees = Array.isArray(task.assignees) ? task.assignees : task.assignee_ids;
+  return (Array.isArray(assignees) ? assignees : [])
+    .map((assignee) => String(typeof assignee === "object" && assignee ? assignee.id : assignee))
+    .filter(Boolean);
 }
 
 async function discoverWorkspace(config, request = fetch) {
@@ -110,7 +127,10 @@ async function discoverWorkspace(config, request = fetch) {
   const projects = accessibleProjects(
     await fetchProjects(baseUrl, workspace, config.apiToken, request)
   );
-  const currentUser = await fetchCurrentUser(baseUrl, config.apiToken, request);
+  const [currentUser, workspaceMembers] = await Promise.all([
+    fetchCurrentUser(baseUrl, config.apiToken, request),
+    fetchMembers(baseUrl, workspace, config.apiToken, request)
+  ]);
   const projectsWithStates = await Promise.all(projects.map(async (project) => ({
     id: String(project.id),
     identifier: String(project.identifier || ""),
@@ -126,11 +146,15 @@ async function discoverWorkspace(config, request = fetch) {
   return {
     member: currentUser?.id ? {
       id: String(currentUser.id),
-      name: String(currentUser.display_name
-        || [currentUser.first_name, currentUser.last_name].filter(Boolean).join(" ")
-        || currentUser.email
-        || "Plane user")
+      name: memberName(currentUser)
     } : null,
+    members: workspaceMembers.map((membership) => membership.member || membership)
+      .filter((member) => member?.id)
+      .map((member) => ({
+        id: String(member.id),
+        name: memberName(member),
+        email: String(member.email || "")
+      })),
     projects: projectsWithStates
   };
 }
@@ -142,17 +166,20 @@ async function fetchAssignedTasks(config, request = fetch) {
     await fetchProjects(baseUrl, workspace, config.apiToken, request)
   );
   const selectedProjects = selectProjects(projects, config);
-  const selectedStateNames = new Set(
-    config.stateFilterMode === "selected"
-      ? (config.stateNames || []).map((name) => String(name).toLocaleLowerCase())
-      : []
+  const selectedStateNames = Array.isArray(config.stateNames)
+    ? new Set(config.stateNames.map((name) => String(name).toLocaleLowerCase()))
+    : null;
+  const selectedAssigneeIds = new Set(
+    (Array.isArray(config.assigneeIds) ? config.assigneeIds : [config.memberId])
+      .map((id) => String(id))
+      .filter(Boolean)
   );
+  if (selectedProjects.length === 0 || selectedAssigneeIds.size === 0 || selectedStateNames?.size === 0) return [];
 
   const projectTasks = await Promise.all(selectedProjects.map(async (project) => {
     const url = new URL(`/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(project.id)}/work-items/`, baseUrl);
     url.searchParams.set("per_page", "100");
-    url.searchParams.set("expand", "state,project");
-    url.searchParams.set("assignee", config.memberId);
+    url.searchParams.set("expand", "assignees,state,project");
     const [tasks, states] = await Promise.all([
       fetchPages(url, config.apiToken, request),
       fetchStates(baseUrl, workspace, project.id, config.apiToken, request)
@@ -174,7 +201,8 @@ async function fetchAssignedTasks(config, request = fetch) {
           }
         };
       })
-      .filter((task) => selectedStateNames.size === 0
+      .filter((task) => taskAssigneeIds(task).some((id) => selectedAssigneeIds.has(id)))
+      .filter((task) => selectedStateNames === null
         || selectedStateNames.has(String(task.state?.name || "").toLocaleLowerCase()));
   }));
 

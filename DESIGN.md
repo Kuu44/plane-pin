@@ -57,7 +57,7 @@ Plane Pin should feel like a narrow strip of moving water attached to the edge o
 
 ## Colors
 
-Restrained: cool near-white and ink neutrals, with water blue reserved for active state and focus. The accent is a layered radial-and-linear wave: deep blue carries contrast, cyan supplies movement, and pale blue adds the crest.
+Restrained: cool near-white and ink neutrals, with water blue reserved for active state and focus. The accent is a layered radial-and-linear wave: deep blue carries contrast and teal supplies movement. Every stop keeps white action labels above 6:1 contrast.
 
 **The Signal Rule.** Water blue marks selection, action, or live state; it is not background decoration. Bold accent labels may clip the wave into their text, while ordinary copy remains solid for legibility.
 
@@ -91,9 +91,9 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 - **Compact task row:** the same row at 7px vertical padding, name truncated to one line, state mark unboxed and right-aligned, with the hover link affordance reserved at the far edge. The priority gradient stays, because at this density it is the only remaining priority signal.
 - **Tray icon:** the app mark as a water-blue chip on Windows and Linux, and a black template image on macOS so the system tints it for the active menu bar. Its menu names the platform's own surface — notification area, menu bar, or system tray — and always ends in a real exit.
 - **Input:** cool neutral field with a 1px divider-colored border and water-blue focus state.
-- **Onboarding:** a six-view progressive dialog that performs real connection setup and ends at the first loaded task list.
+- **Onboarding:** a seven-view progressive dialog with separate member, project, and workflow-state choices that performs real connection setup and ends at the first loaded task list.
 - **Settings:** a separate persistent dialog for every connection, filter, refresh, theme, and window preference.
-- **State chooser:** flat selectable rows populated from the connected Plane projects, grouped semantically without hiding custom names.
+- **Filter chooser:** flat member, project, and state rows with consistent spacing plus Select all and Select none actions.
 
 ## Do's and Don'ts
 

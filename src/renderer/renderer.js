@@ -29,13 +29,15 @@ const elements = {
   memberSummary: $("#member-summary"),
   memberFallback: $("#member-fallback"),
   profileUrl: $("#profile-url"),
-  projectAll: $("#project-all"),
-  projectSingle: $("#project-single"),
-  projectSelectField: $("#project-select-field"),
-  projectId: $("#project-id"),
-  stateAll: $("#state-all"),
-  stateSelected: $("#state-selected"),
+  memberOptions: $("#member-options"),
+  memberSelectAll: $("#member-select-all"),
+  memberSelectNone: $("#member-select-none"),
+  projectOptions: $("#project-options"),
+  projectSelectAll: $("#project-select-all"),
+  projectSelectNone: $("#project-select-none"),
   stateOptions: $("#state-options"),
+  stateSelectAll: $("#state-select-all"),
+  stateSelectNone: $("#state-select-none"),
   groupByProject: $("#group-by-project"),
   preferOnTop: $("#prefer-on-top"),
   settingsDialog: $("#settings-dialog"),
@@ -53,13 +55,15 @@ const elements = {
   settingsConnectionStatus: $("#settings-connection-status"),
   settingsProfileField: $("#settings-profile-field"),
   settingsProfileUrl: $("#settings-profile-url"),
-  settingsProjectAll: $("#settings-project-all"),
-  settingsProjectSingle: $("#settings-project-single"),
-  settingsProjectField: $("#settings-project-field"),
-  settingsProjectId: $("#settings-project-id"),
-  settingsStateAll: $("#settings-state-all"),
-  settingsStateSelected: $("#settings-state-selected"),
+  settingsMemberOptions: $("#settings-member-options"),
+  settingsMemberSelectAll: $("#settings-member-select-all"),
+  settingsMemberSelectNone: $("#settings-member-select-none"),
+  settingsProjectOptions: $("#settings-project-options"),
+  settingsProjectSelectAll: $("#settings-project-select-all"),
+  settingsProjectSelectNone: $("#settings-project-select-none"),
   settingsStateOptions: $("#settings-state-options"),
+  settingsStateSelectAll: $("#settings-state-select-all"),
+  settingsStateSelectNone: $("#settings-state-select-none"),
   settingsGroupProject: $("#settings-group-project"),
   settingsOnTop: $("#settings-on-top"),
   settingsCompactCards: $("#settings-compact-cards"),
@@ -74,11 +78,12 @@ const stepTitles = [
   "Bring your Plane work closer",
   "Where is your Plane workspace?",
   "Connect Plane securely",
+  "Choose whose tasks appear",
   "Choose your projects",
   "Filter by workflow state",
   "Your viewing preferences"
 ];
-const stepActions = ["Get started", "Continue", "Test connection", "Continue", "Continue", "Save and show my tasks"];
+const stepActions = ["Get started", "Continue", "Test connection", "Continue", "Continue", "Continue", "Save and show my tasks"];
 const stateGroupLabels = {
   backlog: "Backlog",
   unstarted: "Not started",
@@ -104,8 +109,12 @@ let refreshing = false;
 let compactHintTimer;
 let refreshTimer;
 let connectionDraft = { baseUrl: "", workspaceSlug: "" };
-let draftStateNames = [];
-let settingsDraftStateNames = [];
+let draftAssigneeIds;
+let draftProjectIds;
+let draftStateNames;
+let settingsDraftAssigneeIds;
+let settingsDraftProjectIds;
+let settingsDraftStateNames;
 let settingsScrollTop = 0;
 const windowDrag = window.planePinDrag.createDragTracker();
 let suppressNextClick = false;
@@ -238,14 +247,44 @@ function selectedValues(container) {
   return [...container.querySelectorAll("input:checked")].map((input) => input.value);
 }
 
-function relevantProjects(source, single, projectId) {
-  if (!source) return [];
-  return single ? source.projects.filter((project) => project.id === projectId) : source.projects;
+function selectedOrAll(selected, values) {
+  return selected === null ? [...values] : [...(selected || [])];
 }
 
-function availableStates(source, single, projectId) {
+function resolvedProjectIds(projects, selected) {
+  if (selected === null) return projects.map((project) => project.id);
+  const keys = new Set((selected || []).map((value) => String(value).toLocaleLowerCase()));
+  return projects
+    .filter((project) =>
+      keys.has(project.id.toLocaleLowerCase())
+      || keys.has(project.identifier.toLocaleLowerCase()))
+    .map((project) => project.id);
+}
+
+function syncSelectionActions(container, selectAll, selectNone) {
+  const inputs = [...container.querySelectorAll('input[type="checkbox"]')];
+  const selectedCount = inputs.filter((input) => input.checked).length;
+  selectAll.disabled = inputs.length === 0 || selectedCount === inputs.length;
+  selectNone.disabled = selectedCount === 0;
+}
+
+function setEverySelection(container, checked, onChange) {
+  for (const input of container.querySelectorAll('input[type="checkbox"]')) input.checked = checked;
+  onChange();
+}
+
+function availableStates(source, projectIds) {
+  if (!source) return [];
+  const selectedKeys = Array.isArray(projectIds)
+    ? new Set(projectIds.map((value) => String(value).toLocaleLowerCase()))
+    : null;
+  const selectedProjects = projectIds === null
+    ? source.projects
+    : source.projects.filter((project) =>
+      selectedKeys.has(project.id.toLocaleLowerCase())
+      || selectedKeys.has(project.identifier.toLocaleLowerCase()));
   const states = new Map();
-  for (const project of relevantProjects(source, single, projectId)) {
+  for (const project of selectedProjects) {
     for (const state of project.states) {
       const key = state.name.toLocaleLowerCase();
       if (!states.has(key)) states.set(key, state);
@@ -296,10 +335,11 @@ function stateGlyph(group, color) {
 }
 
 function renderStateRows(container, states, selectedNames, onChange) {
-  const selected = new Set(selectedNames.map((name) => name.toLocaleLowerCase()));
+  const resolvedNames = selectedOrAll(selectedNames, states.map((state) => state.name));
+  const selected = new Set(resolvedNames.map((name) => name.toLocaleLowerCase()));
   const rows = states.map((state) => {
     const label = document.createElement("label");
-    label.className = "state-row";
+    label.className = "selection-row state-row";
     const input = document.createElement("input");
     input.type = "checkbox";
     input.value = state.name;
@@ -317,36 +357,71 @@ function renderStateRows(container, states, selectedNames, onChange) {
   container.replaceChildren(...rows);
 }
 
-function populateProjectSelect(select, source, selectedProjectId) {
-  const options = (source?.projects || []).map((project) => {
-    const option = document.createElement("option");
-    option.value = project.id;
-    option.textContent = project.identifier ? `${project.identifier} — ${project.name}` : project.name;
-    return option;
+function renderSelectionRows(container, items, selectedIds, secondaryText, onChange) {
+  const selected = new Set(selectedOrAll(selectedIds, items.map((item) => item.id)));
+  const rows = items.map((item) => {
+    const label = document.createElement("label");
+    label.className = "selection-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = item.id;
+    input.checked = selected.has(item.id);
+    input.addEventListener("change", onChange);
+    const copy = document.createElement("span");
+    const name = document.createElement("strong");
+    name.textContent = item.name;
+    const secondary = document.createElement("small");
+    secondary.textContent = secondaryText(item);
+    copy.append(name, secondary);
+    label.append(input, copy);
+    return label;
   });
-  select.replaceChildren(...options);
-  const selectedProject = source?.projects.find((project) =>
-    project.id === selectedProjectId
-    || project.identifier.toLocaleLowerCase() === String(selectedProjectId || "").toLocaleLowerCase()
+  container.replaceChildren(...rows);
+}
+
+function renderOnboardingMembers() {
+  const members = discovery?.members || [];
+  draftAssigneeIds = selectedOrAll(draftAssigneeIds, members.map((member) => member.id));
+  const update = () => {
+    draftAssigneeIds = selectedValues(elements.memberOptions);
+    syncSelectionActions(elements.memberOptions, elements.memberSelectAll, elements.memberSelectNone);
+  };
+  renderSelectionRows(
+    elements.memberOptions,
+    members,
+    draftAssigneeIds,
+    (member) => member.email || "Workspace member",
+    update
   );
-  if (selectedProject) select.value = selectedProject.id;
+  update();
+}
+
+function renderOnboardingProjects() {
+  const projects = discovery?.projects || [];
+  draftProjectIds = resolvedProjectIds(projects, draftProjectIds);
+  const update = () => {
+    draftProjectIds = selectedValues(elements.projectOptions);
+    syncSelectionActions(elements.projectOptions, elements.projectSelectAll, elements.projectSelectNone);
+  };
+  renderSelectionRows(
+    elements.projectOptions,
+    projects,
+    draftProjectIds,
+    (project) => project.identifier || "Plane project",
+    update
+  );
+  update();
 }
 
 function renderOnboardingStates() {
-  renderStateRows(
-    elements.stateOptions,
-    availableStates(discovery, elements.projectSingle.checked, elements.projectId.value),
-    draftStateNames,
-    () => {
-      draftStateNames = selectedValues(elements.stateOptions);
-    }
-  );
-  elements.stateOptions.hidden = !elements.stateSelected.checked;
-}
-
-function updateOnboardingProjectChoice() {
-  elements.projectSelectField.hidden = !elements.projectSingle.checked;
-  if (setupStep === 4) renderOnboardingStates();
+  const states = availableStates(discovery, draftProjectIds);
+  draftStateNames = selectedOrAll(draftStateNames, states.map((state) => state.name));
+  const update = () => {
+    draftStateNames = selectedValues(elements.stateOptions);
+    syncSelectionActions(elements.stateOptions, elements.stateSelectAll, elements.stateSelectNone);
+  };
+  renderStateRows(elements.stateOptions, states, draftStateNames, update);
+  syncSelectionActions(elements.stateOptions, elements.stateSelectAll, elements.stateSelectNone);
 }
 
 function showStep(nextStep) {
@@ -357,7 +432,7 @@ function showStep(nextStep) {
     panel.classList.toggle("is-active", active);
   }
   elements.setupTitle.textContent = stepTitles[setupStep];
-  elements.setupProgress.textContent = setupStep === 0 ? "Welcome" : `Step ${setupStep} of 5`;
+  elements.setupProgress.textContent = setupStep === 0 ? "Welcome" : `Step ${setupStep} of 6`;
   elements.setupNext.textContent = stepActions[setupStep];
   elements.setupBack.hidden = setupStep === 0;
   elements.setupError.textContent = "";
@@ -369,7 +444,9 @@ function showStep(nextStep) {
 
 function openOnboarding() {
   discovery = null;
-  draftStateNames = [...(settings.stateNames || [])];
+  draftAssigneeIds = settings.setupComplete ? [...(settings.assigneeIds || [])] : null;
+  draftProjectIds = settings.setupComplete && Array.isArray(settings.projectIds) ? [...settings.projectIds] : null;
+  draftStateNames = settings.setupComplete && Array.isArray(settings.stateNames) ? [...settings.stateNames] : null;
   connectionDraft = { baseUrl: settings.baseUrl || "", workspaceSlug: settings.workspaceSlug || "" };
   elements.planePageUrl.value = settings.baseUrl && settings.workspaceSlug
     ? `${settings.baseUrl}/${settings.workspaceSlug}/`
@@ -379,14 +456,12 @@ function openOnboarding() {
   elements.tokenVisibility.textContent = "Show";
   elements.tokenVisibility.setAttribute("aria-pressed", "false");
   elements.profileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
-  elements.projectAll.checked = settings.projectScope !== "single";
-  elements.projectSingle.checked = settings.projectScope === "single";
-  elements.stateAll.checked = settings.stateFilterMode !== "selected";
-  elements.stateSelected.checked = settings.stateFilterMode === "selected";
   elements.groupByProject.checked = settings.groupByProject;
   elements.preferOnTop.checked = settings.alwaysOnTop;
   elements.memberFallback.hidden = true;
-  updateOnboardingProjectChoice();
+  elements.memberOptions.replaceChildren();
+  elements.projectOptions.replaceChildren();
+  elements.stateOptions.replaceChildren();
   showStep(0);
   if (!elements.setup.open) elements.setup.showModal();
 }
@@ -407,16 +482,16 @@ async function advanceSetup() {
     elements.setupNext.textContent = "Checking…";
     try {
       discovery = await window.planePin.discoverWorkspace({ ...connectionDraft, apiToken: elements.apiToken.value });
-      populateProjectSelect(elements.projectId, discovery, settings.projectId);
       const member = discovery.member || (settings.memberId ? {
         id: settings.memberId,
         name: settings.memberName || "your saved Plane account"
       } : null);
       elements.memberSummary.textContent = member
-        ? `Connected as ${member.name}. We found ${discovery.projects.length} ${discovery.projects.length === 1 ? "project" : "projects"}.`
-        : `Connection works. We found ${discovery.projects.length} projects, but this Plane version needs your My Work link.`;
+        ? `Connected as ${member.name}. Choose from ${discovery.members.length} ${discovery.members.length === 1 ? "member" : "members"}.`
+        : `Connection works. Choose workspace members below, then paste your My Work link so Plane Pin can identify the saved account.`;
       elements.memberFallback.hidden = Boolean(member);
-      updateOnboardingProjectChoice();
+      renderOnboardingMembers();
+      renderOnboardingProjects();
       showStep(3);
     } catch (error) {
       elements.setupError.textContent = error.message;
@@ -428,27 +503,19 @@ async function advanceSetup() {
   }
   if (setupStep === 3) {
     if (!discovery) return showStep(2);
-    if (elements.projectSingle.checked && !elements.projectId.value) {
-      elements.setupError.textContent = "Choose a project.";
-      return;
-    }
     if (!discovery.member?.id && !settings.memberId && !memberIdFromProfile(elements.profileUrl.value)) {
       elements.setupError.textContent = "Paste your My Work page address so Plane Pin can identify your account.";
       return;
     }
-    renderOnboardingStates();
     showStep(4);
     return;
   }
   if (setupStep === 4) {
-    draftStateNames = selectedValues(elements.stateOptions);
-    if (elements.stateSelected.checked && draftStateNames.length === 0) {
-      elements.setupError.textContent = "Select at least one state or choose All states.";
-      return;
-    }
+    renderOnboardingStates();
     showStep(5);
     return;
   }
+  if (setupStep === 5) return showStep(6);
 
   elements.setupNext.disabled = true;
   elements.setupNext.textContent = "Saving…";
@@ -462,10 +529,9 @@ async function advanceSetup() {
       apiToken: elements.apiToken.value,
       memberId: member.id,
       memberName: member.name,
-      projectScope: elements.projectSingle.checked ? "single" : "all",
-      projectId: elements.projectSingle.checked ? elements.projectId.value : "",
-      stateFilterMode: elements.stateSelected.checked ? "selected" : "all",
-      stateNames: elements.stateSelected.checked ? draftStateNames : [],
+      assigneeIds: draftAssigneeIds,
+      projectIds: draftProjectIds,
+      stateNames: draftStateNames,
       groupByProject: elements.groupByProject.checked,
       alwaysOnTop: elements.preferOnTop.checked,
       refreshMinutes: 5,
@@ -480,38 +546,70 @@ async function advanceSetup() {
     elements.setupError.textContent = error.message;
   } finally {
     elements.setupNext.disabled = false;
-    elements.setupNext.textContent = stepActions[5];
+    elements.setupNext.textContent = stepActions[6];
   }
 }
 
-function updateSettingsProjectChoice() {
-  elements.settingsProjectField.hidden = !elements.settingsProjectSingle.checked;
-  renderSettingsStates();
+function renderSettingsMembers() {
+  const members = settingsDiscovery?.members || [];
+  settingsDraftAssigneeIds = selectedOrAll(settingsDraftAssigneeIds, members.map((member) => member.id));
+  const update = () => {
+    settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
+    syncSelectionActions(elements.settingsMemberOptions, elements.settingsMemberSelectAll, elements.settingsMemberSelectNone);
+  };
+  renderSelectionRows(
+    elements.settingsMemberOptions,
+    members,
+    settingsDraftAssigneeIds,
+    (member) => member.email || "Workspace member",
+    update
+  );
+  update();
+}
+
+function renderSettingsProjects() {
+  const projects = settingsDiscovery?.projects || [];
+  settingsDraftProjectIds = resolvedProjectIds(projects, settingsDraftProjectIds);
+  const update = () => {
+    settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
+    syncSelectionActions(elements.settingsProjectOptions, elements.settingsProjectSelectAll, elements.settingsProjectSelectNone);
+    renderSettingsStates();
+  };
+  renderSelectionRows(
+    elements.settingsProjectOptions,
+    projects,
+    settingsDraftProjectIds,
+    (project) => project.identifier || "Plane project",
+    update
+  );
+  syncSelectionActions(elements.settingsProjectOptions, elements.settingsProjectSelectAll, elements.settingsProjectSelectNone);
 }
 
 function renderSettingsStates() {
-  const states = settingsDiscovery
-    ? availableStates(settingsDiscovery, elements.settingsProjectSingle.checked, elements.settingsProjectId.value)
-    : settingsDraftStateNames.map((name) => ({ name, group: "", color: "" }));
-  renderStateRows(elements.settingsStateOptions, states, settingsDraftStateNames, () => {
+  const states = settingsDiscovery ? availableStates(settingsDiscovery, settingsDraftProjectIds) : [];
+  settingsDraftStateNames = selectedOrAll(settingsDraftStateNames, states.map((state) => state.name));
+  const update = () => {
     settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
-  });
-  elements.settingsStateOptions.hidden = !elements.settingsStateSelected.checked;
+    syncSelectionActions(elements.settingsStateOptions, elements.settingsStateSelectAll, elements.settingsStateSelectNone);
+  };
+  renderStateRows(elements.settingsStateOptions, states, settingsDraftStateNames, update);
+  syncSelectionActions(elements.settingsStateOptions, elements.settingsStateSelectAll, elements.settingsStateSelectNone);
 }
 
 function applySettingsDiscovery(result) {
   settingsDiscovery = result;
-  populateProjectSelect(elements.settingsProjectId, settingsDiscovery, settings.projectId);
   const member = settingsDiscovery.member || (settings.memberId ? {
     id: settings.memberId,
     name: settings.memberName || "saved Plane account"
   } : null);
   elements.settingsConnectionStatus.textContent = member
-    ? `Connected as ${member.name} · ${result.projects.length} ${result.projects.length === 1 ? "project" : "projects"}`
-    : `Connected · ${result.projects.length} projects · My Work link required`;
+    ? `Connected as ${member.name} · ${result.members.length} members · ${result.projects.length} projects`
+    : `Connected · ${result.members.length} members · ${result.projects.length} projects · My Work link required`;
   elements.settingsConnectionStatus.className = "connection-ok";
   elements.settingsProfileField.hidden = Boolean(member);
-  updateSettingsProjectChoice();
+  renderSettingsMembers();
+  renderSettingsProjects();
+  renderSettingsStates();
 }
 
 async function testSettingsConnection() {
@@ -539,7 +637,9 @@ async function testSettingsConnection() {
 
 function hydrateSettingsForm() {
   settingsDiscovery = null;
-  settingsDraftStateNames = [...settings.stateNames];
+  settingsDraftAssigneeIds = [...(settings.assigneeIds || [])];
+  settingsDraftProjectIds = Array.isArray(settings.projectIds) ? [...settings.projectIds] : null;
+  settingsDraftStateNames = Array.isArray(settings.stateNames) ? [...settings.stateNames] : null;
   elements.settingsPlaneUrl.value = settings.baseUrl && settings.workspaceSlug
     ? `${settings.baseUrl}/${settings.workspaceSlug}/`
     : "";
@@ -553,11 +653,6 @@ function hydrateSettingsForm() {
     : "Leave blank to keep the encrypted token already saved.";
   elements.settingsProfileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
   elements.settingsProfileField.hidden = Boolean(settings.memberId);
-  elements.settingsProjectAll.checked = settings.projectScope !== "single";
-  elements.settingsProjectSingle.checked = settings.projectScope === "single";
-  elements.settingsProjectField.hidden = !elements.settingsProjectSingle.checked;
-  elements.settingsStateAll.checked = settings.stateFilterMode !== "selected";
-  elements.settingsStateSelected.checked = settings.stateFilterMode === "selected";
   elements.settingsGroupProject.checked = settings.groupByProject;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
   elements.settingsCompactCards.checked = settings.compactCards;
@@ -572,7 +667,19 @@ function hydrateSettingsForm() {
       ? "Saved connection"
       : "Not connected";
   elements.settingsConnectionStatus.className = "";
-  renderSettingsStates();
+  for (const container of [
+    elements.settingsMemberOptions,
+    elements.settingsProjectOptions,
+    elements.settingsStateOptions
+  ]) container.replaceChildren();
+  for (const button of [
+    elements.settingsMemberSelectAll,
+    elements.settingsMemberSelectNone,
+    elements.settingsProjectSelectAll,
+    elements.settingsProjectSelectNone,
+    elements.settingsStateSelectAll,
+    elements.settingsStateSelectNone
+  ]) button.disabled = true;
 }
 
 async function openSettings() {
@@ -604,9 +711,10 @@ async function saveSettingsForm() {
     if (connectionChanged || (!settingsDiscovery && !settings.memberId)) {
       await testSettingsConnection();
     }
-    settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
-    if (elements.settingsStateSelected.checked && settingsDraftStateNames.length === 0) {
-      throw new Error("Select at least one workflow state or choose All states.");
+    if (settingsDiscovery) {
+      settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
+      settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
+      settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
     }
     const member = settingsDiscovery?.member || {
       id: settings.memberId || memberIdFromProfile(elements.settingsProfileUrl.value),
@@ -619,10 +727,9 @@ async function saveSettingsForm() {
       apiToken: elements.settingsToken.value,
       memberId: member.id,
       memberName: member.name,
-      projectScope: elements.settingsProjectSingle.checked ? "single" : "all",
-      projectId: elements.settingsProjectSingle.checked ? elements.settingsProjectId.value || settings.projectId : "",
-      stateFilterMode: elements.settingsStateSelected.checked ? "selected" : "all",
-      stateNames: elements.settingsStateSelected.checked ? settingsDraftStateNames : [],
+      assigneeIds: settingsDraftAssigneeIds,
+      projectIds: settingsDraftProjectIds,
+      stateNames: settingsDraftStateNames,
       groupByProject: elements.settingsGroupProject.checked,
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
@@ -707,9 +814,10 @@ function projectHeading(projectName, count) {
 }
 
 function filterTitle() {
-  if (settings.stateFilterMode !== "selected" || settings.stateNames.length === 0) return "All assigned tasks";
+  if (settings.stateNames === null) return "All selected tasks";
+  if (settings.stateNames.length === 0) return "No workflow states";
   if (settings.stateNames.length === 1) return settings.stateNames[0];
-  return "Selected states";
+  return `${settings.stateNames.length} workflow states`;
 }
 
 function renderTasks(tasks) {
@@ -730,12 +838,10 @@ function renderTasks(tasks) {
   elements.taskList.hidden = tasks.length === 0;
   elements.empty.hidden = tasks.length > 0;
   elements.listTitle.textContent = filterTitle();
-  elements.empty.querySelector("h2").textContent = "No assigned tasks match.";
-  elements.empty.querySelector("p").textContent = settings.stateFilterMode === "selected"
-    ? "Try choosing more workflow states in Settings."
-    : "Plane has no tasks assigned to this account yet.";
+  elements.empty.querySelector("h2").textContent = "No tasks match.";
+  elements.empty.querySelector("p").textContent = "Choose more members, projects, or workflow states in Settings.";
   $("#start-setup").textContent = settings.setupComplete ? "Open settings" : "Set up Plane Pin";
-  elements.count.textContent = `${tasks.length} assigned ${tasks.length === 1 ? "task" : "tasks"}`;
+  elements.count.textContent = `${tasks.length} selected ${tasks.length === 1 ? "task" : "tasks"}`;
   elements.status.textContent = settings.memberName ? `Connected as ${settings.memberName}` : "Connected";
 }
 
@@ -809,11 +915,30 @@ $("#window-close").addEventListener("click", window.planePin.closeWindow);
 elements.setupClose.addEventListener("click", () => elements.setup.close());
 elements.setupLater.addEventListener("click", () => elements.setup.close());
 elements.setupBack.addEventListener("click", () => showStep(Math.max(0, setupStep - 1)));
-elements.projectAll.addEventListener("change", updateOnboardingProjectChoice);
-elements.projectSingle.addEventListener("change", updateOnboardingProjectChoice);
-elements.projectId.addEventListener("change", renderOnboardingStates);
-elements.stateAll.addEventListener("change", renderOnboardingStates);
-elements.stateSelected.addEventListener("change", renderOnboardingStates);
+elements.memberSelectAll.addEventListener("click", () => setEverySelection(elements.memberOptions, true, () => {
+  draftAssigneeIds = selectedValues(elements.memberOptions);
+  syncSelectionActions(elements.memberOptions, elements.memberSelectAll, elements.memberSelectNone);
+}));
+elements.memberSelectNone.addEventListener("click", () => setEverySelection(elements.memberOptions, false, () => {
+  draftAssigneeIds = selectedValues(elements.memberOptions);
+  syncSelectionActions(elements.memberOptions, elements.memberSelectAll, elements.memberSelectNone);
+}));
+elements.projectSelectAll.addEventListener("click", () => setEverySelection(elements.projectOptions, true, () => {
+  draftProjectIds = selectedValues(elements.projectOptions);
+  syncSelectionActions(elements.projectOptions, elements.projectSelectAll, elements.projectSelectNone);
+}));
+elements.projectSelectNone.addEventListener("click", () => setEverySelection(elements.projectOptions, false, () => {
+  draftProjectIds = selectedValues(elements.projectOptions);
+  syncSelectionActions(elements.projectOptions, elements.projectSelectAll, elements.projectSelectNone);
+}));
+elements.stateSelectAll.addEventListener("click", () => setEverySelection(elements.stateOptions, true, () => {
+  draftStateNames = selectedValues(elements.stateOptions);
+  syncSelectionActions(elements.stateOptions, elements.stateSelectAll, elements.stateSelectNone);
+}));
+elements.stateSelectNone.addEventListener("click", () => setEverySelection(elements.stateOptions, false, () => {
+  draftStateNames = selectedValues(elements.stateOptions);
+  syncSelectionActions(elements.stateOptions, elements.stateSelectAll, elements.stateSelectNone);
+}));
 elements.tokenVisibility.addEventListener("click", () => togglePassword(elements.apiToken, elements.tokenVisibility));
 elements.setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -835,11 +960,38 @@ elements.settingsTest.addEventListener("click", async () => {
     // Error is already visible beside the action.
   }
 });
-elements.settingsProjectAll.addEventListener("change", updateSettingsProjectChoice);
-elements.settingsProjectSingle.addEventListener("change", updateSettingsProjectChoice);
-elements.settingsProjectId.addEventListener("change", renderSettingsStates);
-elements.settingsStateAll.addEventListener("change", renderSettingsStates);
-elements.settingsStateSelected.addEventListener("change", renderSettingsStates);
+elements.settingsMemberSelectAll.addEventListener("click", () =>
+  setEverySelection(elements.settingsMemberOptions, true, () => {
+    settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
+    renderSettingsMembers();
+  }));
+elements.settingsMemberSelectNone.addEventListener("click", () =>
+  setEverySelection(elements.settingsMemberOptions, false, () => {
+    settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
+    renderSettingsMembers();
+  }));
+elements.settingsProjectSelectAll.addEventListener("click", () =>
+  setEverySelection(elements.settingsProjectOptions, true, () => {
+    settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
+    renderSettingsProjects();
+    renderSettingsStates();
+  }));
+elements.settingsProjectSelectNone.addEventListener("click", () =>
+  setEverySelection(elements.settingsProjectOptions, false, () => {
+    settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
+    renderSettingsProjects();
+    renderSettingsStates();
+  }));
+elements.settingsStateSelectAll.addEventListener("click", () =>
+  setEverySelection(elements.settingsStateOptions, true, () => {
+    settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
+    renderSettingsStates();
+  }));
+elements.settingsStateSelectNone.addEventListener("click", () =>
+  setEverySelection(elements.settingsStateOptions, false, () => {
+    settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
+    renderSettingsStates();
+  }));
 elements.settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveSettingsForm();
