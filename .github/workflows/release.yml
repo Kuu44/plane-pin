@@ -31,4 +31,5 @@ jobs:
             throw "The versioned installer or source archive is missing."
           }
           $assets = Get-ChildItem builds -File | ForEach-Object FullName
-          gh release create $env:GITHUB_REF_NAME $assets --verify-tag --generate-notes --title $env:GITHUB_REF_NAME
+          ./scripts/get-release-notes.ps1 -Version $version | Set-Content release-notes.md -Encoding utf8
+          gh release create $env:GITHUB_REF_NAME $assets --verify-tag --notes-file release-notes.md --title $env:GITHUB_REF_NAME
