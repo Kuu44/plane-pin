@@ -11,4 +11,6 @@
 - [ ] Review setup friction after that live test and tighten the form again.
 - [ ] Add a proper app icon and code signing before wider distribution.
 - [ ] Build and verify macOS and Linux packages when the Windows workflow is stable.
+- [x] Add release branches, versioned builds, upgrade-safe Windows packaging, and update checks.
+- [ ] Choose a public binary-only update feed or provide private GitHub credentials per installed user.
 - [x] Create the Git repository and connect its remote.

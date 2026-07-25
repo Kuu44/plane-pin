@@ -3,6 +3,7 @@
 const { app, BrowserWindow, ipcMain, safeStorage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const { autoUpdater } = require("electron-updater");
 const { fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
 
 let mainWindow;
@@ -122,6 +123,13 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
+function startAutoUpdates() {
+  if (!app.isPackaged || !process.env.GH_TOKEN) return;
+  autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+    console.error(`Update check failed: ${error.message}`);
+  });
+}
+
 ipcMain.handle("settings:get", () => publicSettings());
 ipcMain.handle("settings:save", (_event, input) => saveSettings(input));
 ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
@@ -153,7 +161,9 @@ ipcMain.handle("tasks:list", async () => {
 });
 
 app.whenReady().then(() => {
+  app.setAppUserModelId("com.niyalo.planepin");
   createWindow();
+  startAutoUpdates();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

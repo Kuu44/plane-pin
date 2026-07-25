@@ -1,0 +1,34 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Verify and publish tracked release files
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne $env:GITHUB_REF_NAME) {
+            throw "Tag $env:GITHUB_REF_NAME does not match package version v$version."
+          }
+          $installer = "builds/Plane-Pin-Setup-v$version.exe"
+          $source = "builds/Plane-Pin-Source-v$version.zip"
+          if (-not (Test-Path $installer) -or -not (Test-Path $source)) {
+            throw "The versioned installer or source archive is missing."
+          }
+          $assets = Get-ChildItem builds -File | ForEach-Object FullName
+          gh release create $env:GITHUB_REF_NAME $assets --verify-tag --generate-notes --title $env:GITHUB_REF_NAME
