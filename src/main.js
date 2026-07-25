@@ -7,6 +7,7 @@ const { autoUpdater } = require("electron-updater");
 const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
 const { cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
 const { buildTrayMenuTemplate, trayLocationName, trayTooltip } = require("./tray-menu");
+const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
 
 let mainWindow;
 let tray;
@@ -153,7 +154,7 @@ function saveSettings(input) {
     setupComplete: true
   };
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error("Windows encryption is unavailable, so Plane Pin cannot save the API token safely.");
+    throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the API token safely.");
   }
   stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
   writeStoredSettings(stored);
@@ -274,7 +275,7 @@ function createWindow() {
     minHeight: 420,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: settings.theme === "dark" ? "#17171a" : "#f7f7f8",
-    frame: false,
+    ...windowChromeOptions(process.platform),
     show: false,
     icon: path.join(__dirname, "renderer", "assets", "app-icon.png"),
     title: "Plane Pin",
@@ -290,12 +291,19 @@ function createWindow() {
   // Closing and minimising park the app in the tray instead of ending it, so the
   // task rail stays one click away. Quit from the tray menu really exits.
   mainWindow.on("close", (event) => {
-    if (quitting || !tray || !normalizeStoredSettings(readStoredSettings()).closeToTray) return;
+    if (!shouldHideToTray({
+      preference: normalizeStoredSettings(readStoredSettings()).closeToTray,
+      quitting,
+      trayAvailable: Boolean(tray)
+    })) return;
     event.preventDefault();
     hideWindow();
   });
   mainWindow.on("minimize", (event) => {
-    if (!tray || !normalizeStoredSettings(readStoredSettings()).minimizeToTray) return;
+    if (!shouldHideToTray({
+      preference: normalizeStoredSettings(readStoredSettings()).minimizeToTray,
+      trayAvailable: Boolean(tray)
+    })) return;
     event.preventDefault();
     hideWindow();
   });
@@ -355,6 +363,12 @@ ipcMain.handle("settings:set-preference", (_event, key, value) => {
   throw new Error("Unknown preference.");
 });
 ipcMain.handle("window:minimize", () => mainWindow?.minimize());
+ipcMain.handle("window:set-compact-mode", (_event, enabled) => {
+  if (process.platform === "darwin" && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setWindowButtonVisibility(!Boolean(enabled));
+  }
+  return Boolean(enabled);
+});
 // Press-and-hold anywhere in task-only mode moves the window. The renderer sends
 // screen-space deltas; the main process owns the position so multi-monitor
 // coordinates and the maximised guard stay in one place.

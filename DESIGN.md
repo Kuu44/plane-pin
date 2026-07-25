@@ -73,6 +73,8 @@ Because compact mode removes the title bar, the whole rail becomes the drag hand
 
 Card density is a separate axis from chrome. **Compact cards** keeps the name and the state mark and drops the identifier, the state label, and the due date, moving the mark to the right edge on the same line. Density changes what a row says, never where the rail lives.
 
+macOS keeps native inset traffic lights rather than imitating Windows controls. The custom title area clears their footprint, and task-only mode hides them until the controls return.
+
 ## Elevation & Depth
 
 The app is flat internally. Window elevation belongs to the operating system; inside, tonal surfaces and 1px separators establish depth. Action shadows use a visible vertical offset and soft blur.

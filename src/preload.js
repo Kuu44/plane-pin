@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("planePin", {
   setAlwaysOnTop: (enabled) => ipcRenderer.invoke("window:set-always-on-top", enabled),
   setPreference: (key, value) => ipcRenderer.invoke("settings:set-preference", key, value),
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
+  setWindowCompactMode: (enabled) => ipcRenderer.invoke("window:set-compact-mode", enabled),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggle-maximize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
   startWindowDrag: () => ipcRenderer.invoke("window:drag-start"),

@@ -70,6 +70,7 @@ async function open(browser, { compactCards, theme }) {
         setAlwaysOnTop: async (value) => value,
         setPreference: async (key, value) => value,
         minimizeWindow: async () => {},
+        setWindowCompactMode: async () => false,
         toggleMaximizeWindow: async () => false,
         closeWindow: async () => {},
         startWindowDrag: async () => true,

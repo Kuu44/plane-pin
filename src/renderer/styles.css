@@ -126,6 +126,9 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .native-controls .close-window:hover { color: #ffffff; background: #c42b1c; }
 .native-controls svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1; }
 
+.platform-mac .titlebar { padding-left: 78px; }
+.platform-mac .native-controls { display: none; }
+
 .app-shell {
   display: grid;
   width: 100%;

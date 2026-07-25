@@ -28,6 +28,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 - Linux packages ship a desktop entry whose `StartupWMClass` matches the executable, plus icons at every standard size from 16px to 1024px, so desktops group Plane Pin windows and show a real icon.
 - Desktops without a system tray keep ordinary window behaviour rather than hiding a window that could not be recovered.
+- macOS uses its native traffic-light controls and hides them with the rest of the chrome in task-only mode.
+- Secure-storage guidance now names the operating system credential store instead of referring only to Windows encryption.
 
 ## [0.5.0] - 2026-07-25
 

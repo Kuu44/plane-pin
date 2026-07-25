@@ -175,6 +175,7 @@ async function togglePin() {
 function setCompactMode(enabled) {
   compactMode = enabled;
   document.body.classList.toggle("compact-mode", enabled);
+  window.planePin.setWindowCompactMode(enabled);
   elements.compactToggle.setAttribute("aria-label", enabled ? "Show controls" : "Hide controls");
   elements.compactToggle.dataset.tooltip = `${enabled ? "Show controls" : "Hide controls"} · ${modifierLabel()}Shift+H`;
   if (enabled) {
@@ -653,8 +654,9 @@ function taskRow(task) {
   const button = document.createElement("button");
   button.className = `task-card priority-${task.priority}`;
   button.type = "button";
-  button.setAttribute("aria-label", `Open ${task.identifier}: ${task.name} — ${task.stateName}`);
-  button.title = `${task.identifier} · ${task.stateName}\n${task.name}`;
+  const priority = task.priority && task.priority !== "none" ? ` · ${task.priority} priority` : "";
+  button.setAttribute("aria-label", `Open ${task.identifier}: ${task.name} — ${task.stateName}${priority}`);
+  button.title = `${task.identifier} · ${task.stateName}${priority}\n${task.name}`;
   button.addEventListener("click", async () => {
     try {
       await window.planePin.openTask(task.url);
@@ -766,6 +768,7 @@ function scheduleAutoRefresh() {
 
 function applySettingsToShell() {
   isMac = settings.platform === "darwin";
+  document.body.classList.toggle("platform-mac", isMac);
   localiseShortcutLabels();
   applyTheme(settings.theme);
   setPinVisual(settings.alwaysOnTop);
@@ -839,6 +842,7 @@ document.addEventListener("mousemove", continueWindowDrag);
 document.addEventListener("mouseup", finishWindowDrag);
 window.addEventListener("blur", () => {
   windowDrag.cancel();
+  window.planePin.endWindowDrag();
   if (dragFrame) cancelAnimationFrame(dragFrame);
   dragFrame = 0;
   pendingDrag = null;

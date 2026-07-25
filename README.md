@@ -34,6 +34,8 @@ Both behaviours can be turned off individually under Settings → Window. On a L
 
 In task-only mode the window has no title bar, so press and hold anywhere on the rail and move to reposition it. A short press is still a click and opens that task in Plane.
 
+On macOS, Plane Pin uses the native traffic-light controls. They disappear with the rest of the chrome in task-only mode and return when you press `Escape`.
+
 ## Compact cards
 
 Settings → Appearance → **Compact cards** reduces each row to the task name and its state icon, dropping the identifier, state label, and due date. Roughly twice as many tasks fit in the same window height. The setting is also on the tray menu, and project headings still follow the separate **Group by project** preference.
