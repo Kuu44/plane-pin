@@ -44,7 +44,7 @@ jobs:
       matrix:
         include:
           - platform: macos
-            os: macos-latest
+            os: macos-15
             script: "dist:mac"
           - platform: linux
             os: ubuntu-latest

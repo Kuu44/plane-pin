@@ -13,6 +13,7 @@
 - [ ] Sign and notarise the macOS build, and code-sign the Windows installer, before wider distribution.
 - [x] Add macOS and Linux packaging and build both on tag pushes.
 - [ ] Verify the macOS `.dmg` and the Linux `.AppImage`/`.deb` on real hardware, including the tray icon and the task-only drag.
+- [ ] Revisit task-only dragging if Electron exposes a compositor-approved native Wayland move API.
 - [x] Add release branches, versioned builds, upgrade-safe Windows packaging, and update checks.
 - [x] Add guided onboarding with account, project, and workflow-state discovery.
 - [x] Preserve settings and recover gracefully when a saved token cannot be decrypted.

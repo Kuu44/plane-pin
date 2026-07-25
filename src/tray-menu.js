@@ -22,7 +22,12 @@ function buildTrayMenuTemplate(state = {}) {
   return [
     { id: "show", type: "normal", label: state.windowVisible ? "Hide Plane Pin" : "Show Plane Pin" },
     { type: "separator" },
-    { id: "refresh", type: "normal", label: "Refresh tasks", enabled: connected },
+    {
+      id: "refresh",
+      type: "normal",
+      label: "Refresh tasks",
+      ...(platform === "darwin" ? {} : { enabled: connected })
+    },
     { id: "always-on-top", type: "checkbox", label: "Always on top", checked: Boolean(state.alwaysOnTop) },
     { id: "compact-cards", type: "checkbox", label: "Compact cards", checked: Boolean(state.compactCards) },
     { id: "settings", type: "normal", label: "Settings…" },

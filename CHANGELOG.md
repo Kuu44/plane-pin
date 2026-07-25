@@ -15,7 +15,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Added press-and-hold dragging anywhere in task-only mode, so the rail moves the way it does from the title bar when the controls are visible.
 - Added a Compact cards setting that shows only the task name and its state icon, fitting roughly twice as many tasks on screen.
 - Added Window settings for closing and minimising to the tray, described using each platform's own name for that surface.
-- Added macOS and Linux packages. Every version tag now builds a universal set of installers and attaches them to its GitHub Release.
+- Added universal macOS and x64 Linux packages. Every version tag builds them on their native operating systems and attaches them to its GitHub Release.
 - Added a Plane Pin application icon and matching tray glyph, including a macOS template image that follows the menu bar's appearance.
 
 ### Changed
@@ -30,6 +30,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Desktops without a system tray keep ordinary window behaviour rather than hiding a window that could not be recovered.
 - macOS uses its native traffic-light controls and hides them with the rest of the chrome in task-only mode.
 - Secure-storage guidance now names the operating system credential store instead of referring only to Windows encryption.
+- macOS tray menus avoid unsupported top-level disabled states.
 
 ## [0.5.0] - 2026-07-25
 

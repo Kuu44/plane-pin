@@ -37,6 +37,11 @@ test("refresh is disabled until a token is loaded", () => {
   assert.equal(byId(buildTrayMenuTemplate({ connected: false }), "refresh").enabled, false);
   assert.equal(byId(buildTrayMenuTemplate({ connected: true }), "refresh").enabled, true);
   assert.equal(byId(buildTrayMenuTemplate({}), "refresh").enabled, true);
+  assert.equal(
+    byId(buildTrayMenuTemplate({ connected: false, platform: "darwin" }), "refresh").enabled,
+    undefined,
+    "macOS tray items do not support the enabled property"
+  );
 });
 
 test("every entry carries an id the click handler can route on", () => {

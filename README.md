@@ -32,7 +32,7 @@ Plane Pin keeps an icon in the Windows notification area, the macOS menu bar, or
 
 Both behaviours can be turned off individually under Settings → Window. On a Linux desktop with no system tray, Plane Pin detects the missing icon and keeps ordinary close and minimise behaviour so the window can never be hidden beyond reach.
 
-In task-only mode the window has no title bar, so press and hold anywhere on the rail and move to reposition it. A short press is still a click and opens that task in Plane.
+In task-only mode the window has no title bar, so press and hold anywhere on the rail and move to reposition it. A short press is still a click and opens that task in Plane. This works on Windows, macOS, and X11 Linux sessions; native Wayland does not allow applications to reposition their own windows.
 
 On macOS, Plane Pin uses the native traffic-light controls. They disappear with the rest of the chrome in task-only mode and return when you press `Escape`.
 
@@ -65,7 +65,7 @@ macOS and Linux packages are not built on Windows and are not committed to `buil
 | Platform | Assets |
 | --- | --- |
 | Windows | `Plane-Pin-Setup-vX.Y.Z.exe` (committed to `builds/`) |
-| macOS | `.dmg` and `.zip` for Apple Silicon and Intel |
+| macOS | Universal `.dmg` and `.zip` for Apple Silicon and Intel |
 | Linux | `.AppImage` and `.deb` for x64 |
 
 To build one locally on the matching operating system:
