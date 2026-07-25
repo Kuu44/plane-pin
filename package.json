@@ -1,27 +1,45 @@
 {
   "name": "plane-pin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A compact desktop companion for in-progress Plane tasks.",
   "repository": "https://github.com/Kuu44/plane-pin",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis --publish never",
+    "release:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1"
   },
   "build": {
     "appId": "com.niyalo.planepin",
     "productName": "Plane Pin",
+    "artifactName": "Plane-Pin-Setup-v${version}.${ext}",
     "files": [
       "src/**/*",
       "package.json"
     ],
     "win": {
       "target": "nsis"
-    }
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Kuu44",
+        "repo": "plane-pin",
+        "private": true
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^37.2.3",
     "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

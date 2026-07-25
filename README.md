@@ -32,7 +32,25 @@ For a My Work URL such as `https://plane.example.com/engineering/profile/USER-UU
 
 ```powershell
 npm.cmd test
-npm.cmd run dist:win
+npm.cmd run release:win
 ```
 
-The Windows installer is written to `dist/`.
+Commit source changes before running the release command. It tests and packages the app, then replaces `builds/` with the current version's installer, source archive, and updater metadata.
+
+## Windows upgrades and settings
+
+Running a newer Plane Pin installer upgrades the existing per-user installation because every version keeps the same Electron app ID. You do not need to uninstall first.
+
+Settings survive both upgrades and normal uninstall/reinstall cycles. On this Windows installation they live at:
+
+```text
+%APPDATA%\plane-pin\settings.json
+```
+
+That is normally `C:\Users\<you>\AppData\Roaming\plane-pin\settings.json`. The Plane token is encrypted with Windows DPAPI through Electron `safeStorage`; it is not stored as readable text.
+
+The packaged app also checks for an update after launch. Because the GitHub repository is private, that check runs only when `GH_TOKEN` is set for the user launching Plane Pin. Do not put a GitHub token in the source or installer. A public release-only repository or another public HTTPS update feed would let normal installs update without a token.
+
+When an update is found, `electron-updater` downloads the NSIS installer and installs it when the app exits. GitHub Releases are created automatically when a matching version tag such as `v0.3.0` is pushed.
+
+See `AGENTS.md` for the branch, version, and release rules.
