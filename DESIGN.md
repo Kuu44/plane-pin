@@ -2,8 +2,8 @@
 name: Plane Pin
 description: A compact desktop rail for active Plane work.
 colors:
-  accent: "#5b43d6"
-  accent-hover: "#4931c4"
+  accent: "#087fd7"
+  accent-hover: "#0569bc"
   canvas: "#f6f7fb"
   surface: "#ffffff"
   ink: "#171821"
@@ -31,12 +31,12 @@ spacing:
   section: "18px"
 components:
   button-primary:
-    backgroundColor: "{colors.accent}"
+    backgroundColor: "water-wave gradient"
     textColor: "{colors.surface}"
     rounded: "{rounded.action}"
     height: "40px"
   button-primary-hover:
-    backgroundColor: "{colors.accent-hover}"
+    backgroundColor: "water-wave gradient with lifted shadow"
     textColor: "{colors.surface}"
     rounded: "{rounded.action}"
 ---
@@ -45,21 +45,21 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Magnetic Work Rail"**
+**Creative North Star: "The Waterline Work Rail"**
 
-Plane Pin should feel like a narrow physical strip attached to the edge of a monitor: calm, dense, and immediately legible. It is an operating surface, so expression lives in precise alignment, a single Plane-purple signal, and a compact silhouette rather than decorative chrome.
+Plane Pin should feel like a narrow strip of moving water attached to the edge of a monitor: calm, dense, and immediately legible. It is an operating surface, so expression lives in precise alignment, a layered water-blue signal, and a compact silhouette rather than decorative chrome.
 
 **Key Characteristics:**
 
-- Quiet neutral canvas with one restrained violet accent.
+- Quiet neutral canvas with one deep-to-clear water-blue accent.
 - Information-first rows instead of a card grid.
 - Compact controls that remain unmistakably interactive.
 
 ## Colors
 
-Restrained: cool near-white and ink neutrals, with violet reserved for active state and focus.
+Restrained: cool near-white and ink neutrals, with water blue reserved for active state and focus. The accent is a layered radial-and-linear wave: deep blue carries contrast, cyan supplies movement, and pale blue adds the crest.
 
-**The Signal Rule.** Violet marks selection, action, or live state; it is not background decoration.
+**The Signal Rule.** Water blue marks selection, action, or live state; it is not background decoration. Bold accent labels may clip the wave into their text, while ordinary copy remains solid for legibility.
 
 ## Typography
 
@@ -85,12 +85,12 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 
 ## Components
 
-- **Primary action:** violet fill, white label, 40px minimum height, 10px corners.
-- **Pin control:** a labeled state button; active uses solid violet and a check, inactive reads “Normal window.”
+- **Primary action:** water-wave fill, white label, 40px minimum height, 10px corners.
+- **Pin control:** a labeled state button; active uses the water-wave fill and a check, inactive reads “Normal window.”
 - **Task row:** border-separated list item with a left-to-transparent priority gradient, aligned metadata, and a Plane-like boxed state chip.
-- **Compact task row:** the same row at 8px × 16px padding, name truncated to one line, state mark unboxed and right-aligned. The priority gradient stays, because at this density it is the only remaining priority signal.
-- **Tray icon:** the app mark as a violet chip on Windows and Linux, and a black template image on macOS so the system tints it for the active menu bar. Its menu names the platform's own surface — notification area, menu bar, or system tray — and always ends in a real exit.
-- **Input:** cool neutral field with a 1px divider-colored border and violet focus state.
+- **Compact task row:** the same row at 7px vertical padding, name truncated to one line, state mark unboxed and right-aligned, with the hover link affordance reserved at the far edge. The priority gradient stays, because at this density it is the only remaining priority signal.
+- **Tray icon:** the app mark as a water-blue chip on Windows and Linux, and a black template image on macOS so the system tints it for the active menu bar. Its menu names the platform's own surface — notification area, menu bar, or system tray — and always ends in a real exit.
+- **Input:** cool neutral field with a 1px divider-colored border and water-blue focus state.
 - **Onboarding:** a six-view progressive dialog that performs real connection setup and ends at the first loaded task list.
 - **Settings:** a separate persistent dialog for every connection, filter, refresh, theme, and window preference.
 - **State chooser:** flat selectable rows populated from the connected Plane projects, grouped semantically without hiding custom names.
