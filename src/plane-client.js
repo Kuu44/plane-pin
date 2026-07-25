@@ -89,6 +89,10 @@ async function fetchStates(baseUrl, workspace, projectId, apiToken, request) {
   return fetchPages(statesUrl, apiToken, request);
 }
 
+function accessibleProjects(projects) {
+  return projects.filter((project) => project.is_member !== false);
+}
+
 function selectProjects(projects, config) {
   const selected = config.projectScope === "single"
     ? projects.filter((project) => project.id === config.projectId
@@ -103,7 +107,9 @@ function selectProjects(projects, config) {
 async function discoverWorkspace(config, request = fetch) {
   const baseUrl = normalizeBaseUrl(config.baseUrl);
   const workspace = encodeURIComponent(config.workspaceSlug);
-  const projects = await fetchProjects(baseUrl, workspace, config.apiToken, request);
+  const projects = accessibleProjects(
+    await fetchProjects(baseUrl, workspace, config.apiToken, request)
+  );
   const currentUser = await fetchCurrentUser(baseUrl, config.apiToken, request);
   const projectsWithStates = await Promise.all(projects.map(async (project) => ({
     id: String(project.id),
@@ -132,7 +138,9 @@ async function discoverWorkspace(config, request = fetch) {
 async function fetchAssignedTasks(config, request = fetch) {
   const baseUrl = normalizeBaseUrl(config.baseUrl);
   const workspace = encodeURIComponent(config.workspaceSlug);
-  const projects = await fetchProjects(baseUrl, workspace, config.apiToken, request);
+  const projects = accessibleProjects(
+    await fetchProjects(baseUrl, workspace, config.apiToken, request)
+  );
   const selectedProjects = selectProjects(projects, config);
   const selectedStateNames = new Set(
     config.stateFilterMode === "selected"

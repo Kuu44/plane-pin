@@ -72,6 +72,49 @@ test("limits requests when one project key is selected", async () => {
   assert.match(requestedPaths[1], new RegExp(projectA.id));
 });
 
+test("skips projects Plane explicitly marks inaccessible", async () => {
+  const requestedPaths = [];
+  const request = async (url) => {
+    requestedPaths.push(url.pathname);
+    if (url.pathname.endsWith("/projects/")) {
+      return {
+        ok: true,
+        json: async () => [
+          projectA,
+          { ...projectB, is_member: false }
+        ]
+      };
+    }
+    if (url.pathname.endsWith("/users/me/")) {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "94cf0210-9909-4f77-b24e-14b2988156e5",
+          display_name: "Kuu"
+        })
+      };
+    }
+    return { ok: true, json: async () => [] };
+  };
+
+  const config = {
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "engineering",
+    projectScope: "all",
+    projectId: "",
+    memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
+    stateFilterMode: "all",
+    stateNames: [],
+    apiToken: "secret"
+  };
+
+  const discovery = await discoverWorkspace(config, request);
+  await fetchAssignedTasks(config, request);
+
+  assert.deepEqual(discovery.projects.map((project) => project.identifier), ["MKTG"]);
+  assert.equal(requestedPaths.filter((path) => path.includes(projectB.id)).length, 0);
+});
+
 test("discovers the current user, projects, and their exact states", async () => {
   const request = async (url) => {
     if (url.pathname.endsWith("/projects/")) {
