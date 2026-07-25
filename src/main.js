@@ -1,14 +1,15 @@
 "use strict";
 
-const { app, BrowserWindow, ipcMain, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, nativeTheme, safeStorage, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { autoUpdater } = require("electron-updater");
-const { discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
+const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
 const { cleanStateNames, loadStoredSettings } = require("./settings-model");
 
 let mainWindow;
 let sessionToken = "";
+const settingsFileName = "settings.json";
 
 const developmentUserDataArgument = process.argv.find((argument) => argument.startsWith("--plane-pin-user-data-dir="));
 const developmentUserData = !app.isPackaged
@@ -17,43 +18,80 @@ if (developmentUserData) app.disableHardwareAcceleration();
 app.setPath("userData", developmentUserData || path.join(app.getPath("appData"), "plane-pin"));
 
 function settingsPath() {
-  return path.join(app.getPath("userData"), "settings.json");
+  return path.join(app.getPath("userData"), settingsFileName);
+}
+
+function settingsCandidates() {
+  const appData = app.getPath("appData");
+  const paths = [
+    settingsPath(),
+    path.join(app.getPath("userData"), "settings.backup.json"),
+    path.join(appData, "Plane Pin", settingsFileName),
+    path.join(appData, "PlanePin", settingsFileName)
+  ];
+  const seen = new Set();
+  return paths.filter((candidate) => {
+    const key = path.resolve(candidate).toLocaleLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function readStoredSettingsCandidates() {
+  const records = [];
+  for (const candidate of settingsCandidates()) {
+    try {
+      records.push({ path: candidate, value: JSON.parse(fs.readFileSync(candidate, "utf8")) });
+    } catch {
+      // Missing and invalid files are skipped; valid backups remain candidates.
+    }
+  }
+  return records;
 }
 
 function readStoredSettings() {
-  const candidates = [settingsPath(), path.join(app.getPath("userData"), "settings.backup.json")];
-  for (const candidate of candidates) {
-    try {
-      return JSON.parse(fs.readFileSync(candidate, "utf8"));
-    } catch {
-      // Try the valid backup before treating this as a first run.
-    }
-  }
-  return {};
+  return readStoredSettingsCandidates()[0]?.value || {};
 }
 
-function writeStoredSettings(settings) {
+function writeStoredSettings(settings, backupCurrent = true) {
   const target = settingsPath();
   const directory = path.dirname(target);
   const backup = path.join(directory, "settings.backup.json");
   const temporary = path.join(directory, "settings.next.json");
   fs.mkdirSync(directory, { recursive: true });
-  try {
-    JSON.parse(fs.readFileSync(target, "utf8"));
-    fs.copyFileSync(target, backup);
-  } catch {
-    // A missing or invalid primary file must not replace a valid backup.
+  if (backupCurrent) {
+    try {
+      JSON.parse(fs.readFileSync(target, "utf8"));
+      fs.copyFileSync(target, backup);
+    } catch {
+      // A missing or invalid primary file must not replace a valid backup.
+    }
   }
   fs.writeFileSync(temporary, JSON.stringify(settings, null, 2), { mode: 0o600 });
   fs.renameSync(temporary, target);
 }
 
 function loadSettings() {
-  const loaded = loadStoredSettings(readStoredSettings(), (encryptedToken) => {
+  const records = readStoredSettingsCandidates();
+  const loaded = loadStoredSettings(records.map((record) => record.value), (encryptedToken) => {
     if (!safeStorage.isEncryptionAvailable()) throw new Error("OS encryption is unavailable.");
     return safeStorage.decryptString(Buffer.from(encryptedToken, "base64"));
   });
   if (loaded.token) sessionToken = loaded.token;
+  const primaryRecord = records[0];
+  const tokenRecord = records[loaded.tokenSourceIndex];
+  const needsMigration = primaryRecord
+    && (primaryRecord.path !== settingsPath()
+      || primaryRecord.value.schemaVersion !== 1
+      || (loaded.encryptedToken && tokenRecord?.path !== settingsPath()));
+  if (needsMigration) {
+    writeStoredSettings({
+      ...primaryRecord.value,
+      ...loaded.settings,
+      ...(loaded.encryptedToken ? { apiToken: loaded.encryptedToken } : {})
+    }, false);
+  }
   return { ...loaded.settings, tokenError: loaded.tokenError };
 }
 
@@ -68,6 +106,10 @@ function saveSettings(input) {
   const stateNames = cleanStateNames(input.stateNames);
   const groupByProject = Boolean(input.groupByProject);
   const alwaysOnTop = Boolean(input.alwaysOnTop);
+  const refreshMinutes = [0, 1, 5, 10, 15, 30].includes(Number(input.refreshMinutes))
+    ? Number(input.refreshMinutes)
+    : 5;
+  const theme = input.theme === "dark" ? "dark" : "light";
   const nextToken = String(input.apiToken || "").trim() || sessionToken;
 
   if (!workspaceSlug || !memberId || !nextToken || (projectScope === "single" && !projectId)) {
@@ -82,6 +124,7 @@ function saveSettings(input) {
 
   sessionToken = nextToken;
   const stored = {
+    schemaVersion: 1,
     baseUrl,
     workspaceSlug,
     projectId,
@@ -92,13 +135,17 @@ function saveSettings(input) {
     stateNames,
     groupByProject,
     alwaysOnTop,
+    refreshMinutes,
+    theme,
     setupComplete: true
   };
-  if (safeStorage.isEncryptionAvailable()) {
-    stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error("Windows encryption is unavailable, so Plane Pin cannot save the API token safely.");
   }
+  stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
   writeStoredSettings(stored);
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
+  nativeTheme.themeSource = theme;
   return { persistedToken: Boolean(stored.apiToken) };
 }
 
@@ -109,13 +156,15 @@ function publicSettings() {
 
 function createWindow() {
   const settings = loadSettings();
+  nativeTheme.themeSource = settings.theme;
   mainWindow = new BrowserWindow({
     width: 380,
     height: 650,
     minWidth: 320,
     minHeight: 420,
     alwaysOnTop: settings.alwaysOnTop,
-    backgroundColor: "#f6f7fb",
+    backgroundColor: settings.theme === "dark" ? "#17171a" : "#f7f7f8",
+    frame: false,
     title: "Plane Pin",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -152,6 +201,33 @@ ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   return alwaysOnTop;
 });
+ipcMain.handle("settings:set-preference", (_event, key, value) => {
+  const stored = readStoredSettings();
+  if (key === "theme") {
+    const theme = value === "dark" ? "dark" : "light";
+    writeStoredSettings({ ...stored, schemaVersion: 1, theme });
+    nativeTheme.themeSource = theme;
+    mainWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
+    return theme;
+  }
+  throw new Error("Unknown preference.");
+});
+ipcMain.handle("window:minimize", () => mainWindow?.minimize());
+ipcMain.handle("window:toggle-maximize", () => {
+  if (!mainWindow) return false;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  return mainWindow.isMaximized();
+});
+ipcMain.handle("window:close", () => mainWindow?.close());
+ipcMain.handle("task:open", async (_event, taskUrl) => {
+  const settings = loadSettings();
+  const url = new URL(taskUrl);
+  if (url.origin !== normalizeBaseUrl(settings.baseUrl)) {
+    throw new Error("Task link does not belong to the configured Plane server.");
+  }
+  await shell.openExternal(url.toString());
+});
 ipcMain.handle("tasks:list", async () => {
   const settings = loadSettings();
   if (!settings.baseUrl || !settings.workspaceSlug || !settings.memberId || !sessionToken) {
@@ -169,8 +245,11 @@ ipcMain.handle("tasks:list", async () => {
     priority: String(task.priority || "none"),
     targetDate: task.target_date || null,
     stateName: String(task.state?.name || "Unknown state"),
+    stateGroup: String(task.state?.group || "unstarted"),
+    stateColor: String(task.state?.color || ""),
     projectName: String(task.project?.name || task.project?.identifier || "Project"),
-    projectIdentifier: String(task.project?.identifier || "")
+    projectIdentifier: String(task.project?.identifier || ""),
+    url: buildTaskUrl(settings.baseUrl, settings.workspaceSlug, task)
   }));
 });
 

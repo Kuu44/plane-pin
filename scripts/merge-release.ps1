@@ -37,7 +37,10 @@ foreach ($file in $requiredFiles) {
 $temporaryChangelog = [System.IO.Path]::GetTempFileName()
 $temporaryMessage = [System.IO.Path]::GetTempFileName()
 try {
+  $previousOutputEncoding = [Console]::OutputEncoding
+  [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
   $changelog = git show "${Branch}:CHANGELOG.md"
+  if ($LASTEXITCODE -ne 0) { throw "Cannot read CHANGELOG.md from $Branch." }
   [System.IO.File]::WriteAllText(
     $temporaryChangelog,
     ($changelog -join [Environment]::NewLine),
@@ -54,6 +57,7 @@ try {
   git tag -a $tag -m $tag
   if ($LASTEXITCODE -ne 0) { throw "Tag creation failed." }
 } finally {
+  if ($previousOutputEncoding) { [Console]::OutputEncoding = $previousOutputEncoding }
   Remove-Item -LiteralPath $temporaryChangelog, $temporaryMessage -Force -ErrorAction SilentlyContinue
 }
 

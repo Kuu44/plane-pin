@@ -6,6 +6,29 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-25
+
+### Added
+
+- Added a dedicated Settings dialog that remains available after the one-time onboarding flow.
+- Added configurable automatic task refresh, defaulting to every five minutes.
+- Added task rows that open their matching Plane issue in the default browser.
+- Added light and dark themes in both the app toolbar and Settings.
+- Added a frameless compact mode that hides the Windows title bar with the rest of the controls.
+
+### Changed
+
+- Updated the interface to use Inter, Plane-inspired state icons and chips, clearer gear and eye controls, and priority gradients across task cards.
+- Replaced the always-on-top control with clearer active and inactive states.
+
+### Fixed
+
+- Settings now use one stable schema and canonical `%APPDATA%\plane-pin` location across versions.
+- Token recovery now checks primary, backup, and legacy settings files without replacing newer non-secret preferences.
+- Existing users with unreadable saved credentials are sent to Settings instead of being shown onboarding again.
+- Removed horizontal scrolling at the minimum window width.
+- Release tooling now preserves UTF-8 changelog text.
+
 ## [0.4.0] - 2026-07-25
 
 ### Added
@@ -73,7 +96,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Added direct task links, keyboard-accessible controls, visible focus, and reduced-motion support.
 - Added the first Windows NSIS installer and Plane API tests.
 
-[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Kuu44/plane-pin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Kuu44/plane-pin/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Kuu44/plane-pin/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Kuu44/plane-pin/compare/v0.2.0...v0.3.0

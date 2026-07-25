@@ -29,7 +29,9 @@ Windows first, used beside day-to-day work. The app should remain portable to ma
 - Automatic account, project, and workflow-state discovery with a profile URL fallback.
 - Shows work items assigned to the configured profile across one or all accessible projects.
 - Shows all assigned work or filters by several exact project state names.
-- Can group by project, stay above other windows, or hide its chrome in task-only mode.
+- Can group by project, stay above other windows, or hide all app and Windows chrome in task-only mode.
+- Opens task rows in Plane and refreshes automatically on a configurable interval.
+- Supports light and dark themes.
 - Read-only in the MVP.
 - Credentials must not be committed or exposed to the renderer.
 - Exact Plane API shape remains to be verified against the user's hosted version.
@@ -44,6 +46,8 @@ No logo or product assets were supplied. Prior project context identifies a self
 - Read-only before mutating.
 - Credentials stay in the desktop main process.
 - Native desktop behavior over web-app ceremony.
+- One onboarding flow for first launch; one persistent Settings surface afterward.
+- One versioned settings format and canonical storage path across upgrades.
 
 ## Accessibility & Inclusion
 

@@ -23,6 +23,17 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function buildTaskUrl(baseUrl, workspaceSlug, task) {
+  const identifier = task.project?.identifier && task.sequence_id
+    ? `${task.project.identifier}-${task.sequence_id}`
+    : "";
+  if (!identifier) throw new Error("Plane did not return a browsable task identifier.");
+  return new URL(
+    `/${encodeURIComponent(workspaceSlug)}/browse/${encodeURIComponent(identifier)}/`,
+    normalizeBaseUrl(baseUrl)
+  ).toString();
+}
+
 async function fetchPages(initialUrl, apiToken, request) {
   const results = [];
   let cursor = null;
@@ -162,4 +173,4 @@ async function fetchAssignedTasks(config, request = fetch) {
   return projectTasks.flat();
 }
 
-module.exports = { discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl };
+module.exports = { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl };

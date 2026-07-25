@@ -11,12 +11,12 @@ colors:
   divider: "#e4e5ec"
 typography:
   body:
-    fontFamily: "Segoe UI Variable, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.35
   title:
-    fontFamily: "Segoe UI Variable, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
     fontSize: "19px"
     fontWeight: 700
     lineHeight: 1.2
@@ -63,11 +63,11 @@ Restrained: cool near-white and ink neutrals, with violet reserved for active st
 
 ## Typography
 
-Use the native Segoe UI system stack for platform familiarity and dependable rendering. Weight and spacing create hierarchy; no display face is needed. Titles use a compact 19px/1.2 scale, while rows use a 14px/1.35 scale.
+Use bundled Inter to echo Plane while keeping system fonts as a fallback. Weight and spacing create hierarchy; no display face is needed. Titles use a compact 19px/1.2 scale, while rows use a 14px/1.35 scale.
 
 ## Layout
 
-One vertical rail: title and explicit window-state controls, connection/status strip, then a scrollable task list. The window stays useful from 320px wide. Sections use 18px insets and task rows use 15px × 18px padding. Compact mode removes both header rows and leaves subdued floating controls above the task rail.
+One vertical rail: a frameless title bar, explicit window-state controls, connection/status strip, then a scrollable task list. The window stays useful from 320px wide without horizontal scrolling. Sections use 18px insets and task rows use 15px × 18px padding. Compact mode removes all chrome and leaves subdued floating controls above the task rail.
 
 ## Elevation & Depth
 
@@ -81,9 +81,10 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 
 - **Primary action:** violet fill, white label, 40px minimum height, 10px corners.
 - **Pin control:** a labeled state button; active uses solid violet and a check, inactive reads “Normal window.”
-- **Task row:** border-separated, flat list item with an 8px priority marker and aligned metadata.
+- **Task row:** border-separated list item with a left-to-transparent priority gradient, aligned metadata, and a Plane-like boxed state chip.
 - **Input:** cool neutral field with a 1px divider-colored border and violet focus state.
 - **Onboarding:** a six-view progressive dialog that performs real connection setup and ends at the first loaded task list.
+- **Settings:** a separate persistent dialog for every connection, filter, refresh, theme, and window preference.
 - **State chooser:** flat selectable rows populated from the connected Plane projects, grouped semantically without hiding custom names.
 
 ## Do's and Don'ts
