@@ -9,24 +9,28 @@ npm.cmd install
 npm.cmd start
 ```
 
-Open connection settings and enter:
+The first launch opens a guided setup. You will need:
 
-- Plane base URL, such as `https://plane.example.com`
-- workspace slug
-- member UUID from your Plane profile URL
-- all projects or one project UUID/readable key, such as `MKTG`
-- a shared Plane status group
-- Plane personal access token
+- Any page address from your logged-in Plane workspace
+- A Plane personal access token created under Profile settings
+- Your preferred projects and workflow states
+
+Plane Pin normally identifies the token owner automatically. Older self-hosted versions can use the member UUID from a My Work profile URL as a fallback. Tasks are always restricted to that account. You can show every assigned task or select several exact state names from your projects.
 
 The token is handled only by Electron's main process and persisted with Electron `safeStorage` when OS encryption is available.
 
-For a task URL such as `https://plane.example.com/engineering/browse/MKTG-17/`, enter:
+For a task URL such as `https://plane.example.com/engineering/browse/MKTG-17/`, setup detects:
 
 - Plane URL: `https://plane.example.com`
-- workspace slug: `engineering`
-- project key: `MKTG`
+- workspace: `engineering`
 
-For a My Work URL such as `https://plane.example.com/engineering/profile/USER-UUID/assigned/`, use `USER-UUID` as the member ID. The list can combine every accessible project and optionally add project section headings.
+## Keyboard shortcuts
+
+- `Ctrl+Shift+T`: toggle always on top
+- `Ctrl+Shift+H`: toggle task-only compact mode
+- `Ctrl+Shift+R`: refresh tasks
+- `Ctrl+,`: open settings
+- `Escape`: leave compact mode
 
 ## Check and package
 
@@ -48,6 +52,8 @@ Settings survive both upgrades and normal uninstall/reinstall cycles. On this Wi
 ```
 
 That is normally `C:\Users\<you>\AppData\Roaming\plane-pin\settings.json`. The Plane token is encrypted with Windows DPAPI through Electron `safeStorage`; it is not stored as readable text.
+
+Settings are written atomically and the previous valid file is kept as `settings.backup.json`. If Windows cannot unlock the token, Plane Pin preserves the rest of the setup and asks only for a replacement token.
 
 The packaged app also checks for an update after launch. Because the GitHub repository is private, that check runs only when `GH_TOKEN` is set for the user launching Plane Pin. Do not put a GitHub token in the source or installer. A public release-only repository or another public HTTPS update feed would let normal installs update without a token.
 

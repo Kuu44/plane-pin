@@ -1,7 +1,7 @@
 {
   "name": "plane-pin",
-  "version": "0.3.1",
-  "description": "A compact desktop companion for in-progress Plane tasks.",
+  "version": "0.4.0",
+  "description": "A compact desktop companion for your assigned Plane tasks.",
   "repository": "https://github.com/Kuu44/plane-pin",
   "main": "src/main.js",
   "scripts": {

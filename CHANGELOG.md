@@ -6,6 +6,28 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-25
+
+### Added
+
+- Added a guided first-run setup that explains how to find the Plane page address and create a personal access token.
+- Added automatic discovery of the token owner, accessible projects, and each project’s exact workflow states.
+- Added an All states option and multi-select filtering by exact state names across one or all projects.
+- Added a task-only compact mode with a temporary Escape hint and floating window controls.
+- Added keyboard shortcuts and hover tooltips for always-on-top, compact mode, refresh, and settings.
+
+### Changed
+
+- Replaced the ambiguous shared status-group selector with Plane’s actual project state names.
+- Redesigned the always-on-top control so active and inactive states have distinct labels, icons, colors, and motion.
+- Existing installations migrate to All states so no assigned tasks disappear unexpectedly.
+
+### Fixed
+
+- Preserved connection settings when Windows cannot decrypt a saved token instead of resetting the app to first-run defaults.
+- Pinned settings to `%APPDATA%\plane-pin`, added atomic writes, and retained a valid settings backup across upgrades.
+- Resolved custom states such as “In Review” separately from “In Progress” even when both belong to Plane’s Started group.
+
 ## [0.3.1] - 2026-07-25
 
 ### Added
@@ -51,7 +73,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Added direct task links, keyboard-accessible controls, visible focus, and reduced-motion support.
 - Added the first Windows NSIS installer and Plane API tests.
 
-[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Kuu44/plane-pin/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Kuu44/plane-pin/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Kuu44/plane-pin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Kuu44/plane-pin/compare/v0.1.0...v0.2.0
