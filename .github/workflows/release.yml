@@ -9,17 +9,20 @@ permissions:
   contents: write
 
 jobs:
-  publish:
-    runs-on: windows-latest
+  verify:
+    name: Verify tag and tests
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
-      - name: Verify and publish tracked release files
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Confirm the tag matches the tracked Windows release
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ("v$version" -ne $env:GITHUB_REF_NAME) {
@@ -30,6 +33,74 @@ jobs:
           if (-not (Test-Path $installer) -or -not (Test-Path $source)) {
             throw "The versioned installer or source archive is missing."
           }
-          $assets = Get-ChildItem builds -File | ForEach-Object FullName
+      - run: npm ci
+      - run: npm test
+
+  package:
+    name: Package ${{ matrix.platform }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            os: macos-latest
+            script: "dist:mac"
+          - platform: linux
+            os: ubuntu-latest
+            script: "dist:linux"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # No Apple Developer certificate is available, so the macOS build ships
+      # unsigned. README documents the Gatekeeper step that leaves for users.
+      - name: Package
+        run: npm run ${{ matrix.script }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Collect release assets
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find dist -maxdepth 1 -type f \
+            \( -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.deb' \
+               -o -name 'latest-*.yml' -o -name '*.blockmap' \) \
+            -exec cp {} release-assets/ \;
+          ls -la release-assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plane-pin-${{ matrix.platform }}
+          path: release-assets/
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+          merge-multiple: true
+      - name: Create the release with every platform's assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $assets = @(Get-ChildItem builds -File | ForEach-Object FullName)
+          $assets += @(Get-ChildItem downloaded -File -Recurse | ForEach-Object FullName)
+          if ($assets.Count -eq 0) { throw "No release assets were found." }
+          Write-Host "Attaching $($assets.Count) assets:"
+          $assets | ForEach-Object { Write-Host "  $_" }
           ./scripts/get-release-notes.ps1 -Version $version | Set-Content release-notes.md -Encoding utf8
           gh release create $env:GITHUB_REF_NAME $assets --verify-tag --notes-file release-notes.md --title $env:GITHUB_REF_NAME

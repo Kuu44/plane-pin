@@ -653,6 +653,8 @@ kbd {
 }
 
 .compact-hint.show { opacity: 1; transform: translate(-50%, 0); }
+/* Clear the floating controls that sit in the bottom-right corner of the rail. */
+.compact-mode .compact-hint { bottom: 58px; max-width: calc(100vw - 24px); }
 
 .settings-dialog { width: min(540px, calc(100vw - 24px)); }
 .settings-body { padding: 0 20px; }
@@ -704,7 +706,58 @@ kbd {
 .theme-choice input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--accent) 32%, transparent); outline-offset: 2px; }
 .settings-actions { justify-content: flex-end; border-top: 1px solid var(--divider); }
 
+/* Compact cards: the name plus its state mark, nothing else, so the rail carries
+   as many rows as the window height allows. */
+.compact-cards .task-card {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0 9px;
+  align-items: center;
+  padding: 8px 16px;
+}
+
+.compact-cards .task-name {
+  grid-column: 1;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-cards .task-meta {
+  flex: none;
+  grid-row: 1;
+  grid-column: 2;
+  gap: 0;
+}
+
+.compact-cards .task-identifier,
+.compact-cards .due-date,
+.compact-cards .state-name { display: none; }
+
+.compact-cards .state-chip {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.compact-cards .open-task-icon {
+  grid-row: 1;
+  grid-column: 3;
+  align-self: center;
+}
+
+.compact-cards .project-heading { padding-block: 5px; }
+
+/* While a press-and-hold is moving the window, nothing under the pointer should
+   look interactive or start selecting text. */
+.is-dragging-window { cursor: grabbing; user-select: none; }
+.is-dragging-window .task-card:hover { background: var(--surface); }
+.is-dragging-window .open-task-icon { opacity: 0; }
+
 .compact-mode .titlebar, .compact-mode .toolbar, .compact-mode .brand-block, .compact-mode .theme-toggle { display: none; }
+.compact-mode { user-select: none; }
 .compact-mode .app-shell { display: block; height: 100vh; }
 .compact-mode .task-region { height: 100vh; }
 .compact-mode .topbar { position: fixed; z-index: 12; right: 9px; bottom: 9px; padding: 0; background: transparent; opacity: 0.28; }

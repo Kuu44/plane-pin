@@ -19,14 +19,28 @@ Plane Pin normally identifies the token owner automatically. Older self-hosted v
 
 The token is handled only by Electron's main process and persisted with Electron `safeStorage` when OS encryption is available.
 
-Onboarding appears only when no completed setup exists. The separate Settings dialog remains available afterward and can change the connection, task filters, grouping, refresh interval, theme, and window behavior. Task rows open their Plane issue in the default browser, and the list refreshes every five minutes by default.
+Onboarding appears only when no completed setup exists. The separate Settings dialog remains available afterward and can change the connection, task filters, grouping, refresh interval, theme, card density, and window behavior. Task rows open their Plane issue in the default browser, and the list refreshes every five minutes by default.
 
 For a task URL such as `https://plane.example.com/engineering/browse/MKTG-17/`, setup detects:
 
 - Plane URL: `https://plane.example.com`
 - workspace: `engineering`
 
+## Window behaviour
+
+Plane Pin keeps an icon in the Windows notification area, the macOS menu bar, or the Linux system tray. Closing or minimising the window parks the app on that icon rather than ending it, so the rail stays one click away. Left-click the icon to show or hide the window; right-click it for refresh, always on top, compact cards, Settings, and Exit. Exit from that menu is the only action that really closes Plane Pin.
+
+Both behaviours can be turned off individually under Settings → Window. On a Linux desktop with no system tray, Plane Pin detects the missing icon and keeps ordinary close and minimise behaviour so the window can never be hidden beyond reach.
+
+In task-only mode the window has no title bar, so press and hold anywhere on the rail and move to reposition it. A short press is still a click and opens that task in Plane.
+
+## Compact cards
+
+Settings → Appearance → **Compact cards** reduces each row to the task name and its state icon, dropping the identifier, state label, and due date. Roughly twice as many tasks fit in the same window height. The setting is also on the tray menu, and project headings still follow the separate **Group by project** preference.
+
 ## Keyboard shortcuts
+
+macOS uses `Cmd` where the list below says `Ctrl`.
 
 - `Ctrl+Shift+T`: toggle always on top
 - `Ctrl+Shift+H`: toggle task-only compact mode
@@ -43,6 +57,39 @@ npm.cmd run release:win
 ```
 
 Commit source changes before running the release command. It tests and packages the app, then replaces `builds/` with the current version's installer, source archive, and updater metadata.
+
+macOS and Linux packages are not built on Windows and are not committed to `builds/`. Pushing a version tag builds them on GitHub-hosted macOS and Ubuntu runners and attaches them to that version's GitHub Release:
+
+| Platform | Assets |
+| --- | --- |
+| Windows | `Plane-Pin-Setup-vX.Y.Z.exe` (committed to `builds/`) |
+| macOS | `.dmg` and `.zip` for Apple Silicon and Intel |
+| Linux | `.AppImage` and `.deb` for x64 |
+
+To build one locally on the matching operating system:
+
+```bash
+npm run dist:mac     # macOS only
+npm run dist:linux   # Linux only
+```
+
+### macOS is unsigned
+
+There is no Apple Developer certificate for this project, so the macOS build is neither signed nor notarised. Gatekeeper will refuse the first launch. Open it once with **Control-click → Open**, or clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Plane Pin.app"
+```
+
+Signing and notarising remains open in `TODO.md`.
+
+### Application icon
+
+`build/icon.png` and the tray images under `src/renderer/assets` are generated. Regenerate them only when the mark itself changes:
+
+```bash
+python3 scripts/generate-icons.py
+```
 
 ## Windows upgrades and settings
 

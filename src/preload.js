@@ -2,6 +2,8 @@
 
 const { contextBridge, ipcRenderer } = require("electron");
 
+const trayCommands = new Set(["refresh", "settings", "always-on-top", "compact-cards"]);
+
 contextBridge.exposeInMainWorld("planePin", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
@@ -11,6 +13,14 @@ contextBridge.exposeInMainWorld("planePin", {
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggle-maximize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
+  startWindowDrag: () => ipcRenderer.invoke("window:drag-start"),
+  moveWindowBy: (deltaX, deltaY) => ipcRenderer.invoke("window:drag-move", deltaX, deltaY),
+  endWindowDrag: () => ipcRenderer.invoke("window:drag-end"),
   openTask: (url) => ipcRenderer.invoke("task:open", url),
-  listTasks: () => ipcRenderer.invoke("tasks:list")
+  listTasks: () => ipcRenderer.invoke("tasks:list"),
+  onTrayCommand: (handler) => {
+    ipcRenderer.on("tray:command", (_event, command) => {
+      if (trayCommands.has(command)) handler(command);
+    });
+  }
 });

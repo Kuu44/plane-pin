@@ -69,6 +69,10 @@ Use bundled Inter to echo Plane while keeping system fonts as a fallback. Weight
 
 One vertical rail: a frameless title bar, explicit window-state controls, connection/status strip, then a scrollable task list. The window stays useful from 320px wide without horizontal scrolling. Sections use 18px insets and task rows use 15px × 18px padding. Compact mode removes all chrome and leaves subdued floating controls above the task rail.
 
+Because compact mode removes the title bar, the whole rail becomes the drag handle: press and hold anywhere and move. A press that travels less than 4px stays a click, so a task still opens. The rail keeps its own hint clear of the floating controls rather than overlapping them.
+
+Card density is a separate axis from chrome. **Compact cards** keeps the name and the state mark and drops the identifier, the state label, and the due date, moving the mark to the right edge on the same line. Density changes what a row says, never where the rail lives.
+
 ## Elevation & Depth
 
 The app is flat internally. Window elevation belongs to the operating system; inside, tonal surfaces and 1px separators establish depth. Action shadows use a visible vertical offset and soft blur.
@@ -82,6 +86,8 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 - **Primary action:** violet fill, white label, 40px minimum height, 10px corners.
 - **Pin control:** a labeled state button; active uses solid violet and a check, inactive reads “Normal window.”
 - **Task row:** border-separated list item with a left-to-transparent priority gradient, aligned metadata, and a Plane-like boxed state chip.
+- **Compact task row:** the same row at 8px × 16px padding, name truncated to one line, state mark unboxed and right-aligned. The priority gradient stays, because at this density it is the only remaining priority signal.
+- **Tray icon:** the app mark as a violet chip on Windows and Linux, and a black template image on macOS so the system tints it for the active menu bar. Its menu names the platform's own surface — notification area, menu bar, or system tray — and always ends in a real exit.
 - **Input:** cool neutral field with a 1px divider-colored border and violet focus state.
 - **Onboarding:** a six-view progressive dialog that performs real connection setup and ends at the first loaded task list.
 - **Settings:** a separate persistent dialog for every connection, filter, refresh, theme, and window preference.
@@ -93,6 +99,7 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 
 - **Do** keep the in-progress list visible without navigation.
 - **Do** use native platform affordances for window behavior.
+- **Do** call the tray by the name each platform uses for it.
 - **Do** make connection and empty states actionable.
 - **Do** reveal one setup decision at a time and keep the task list as the completion moment.
 
@@ -102,3 +109,4 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 - **Don't** expose API credentials in renderer code or persisted plain text.
 - **Don't** describe Plane’s five state groups as if they were the user’s exact workflow state names.
 - **Don't** add task-editing controls until read-only retrieval is proven.
+- **Don't** hide the window anywhere the user cannot get it back from.

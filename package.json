@@ -1,13 +1,16 @@
 {
   "name": "plane-pin",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A compact desktop companion for your assigned Plane tasks.",
   "repository": "https://github.com/Kuu44/plane-pin",
   "main": "src/main.js",
+  "desktopName": "plane-pin.desktop",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
     "dist:win": "electron-builder --win nsis --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
     "release:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1"
   },
   "build": {
@@ -20,6 +23,50 @@
     ],
     "win": {
       "target": "nsis"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Plane-Pin-v${version}-mac-${arch}.${ext}",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "identity": null
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Plane-Pin-v${version}-linux-${arch}.${ext}",
+      "category": "Utility",
+      "synopsis": "A compact desktop companion for your assigned Plane tasks.",
+      "maintainer": "Kuu44 <noreply@users.noreply.github.com>",
+      "icon": "build/icons",
+      "syncDesktopName": true
     },
     "nsis": {
       "oneClick": true,
@@ -41,5 +88,9 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9"
+  },
+  "author": {
+    "name": "Kuu44",
+    "email": "noreply@users.noreply.github.com"
   }
 }

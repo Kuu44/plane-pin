@@ -26,6 +26,9 @@ function normalizeStoredSettings(stored = {}) {
     alwaysOnTop: stored.alwaysOnTop !== false,
     refreshMinutes: validRefreshMinutes.has(Number(stored.refreshMinutes)) ? Number(stored.refreshMinutes) : 5,
     theme: validThemes.has(stored.theme) ? stored.theme : "light",
+    compactCards: stored.compactCards === true,
+    closeToTray: stored.closeToTray !== false,
+    minimizeToTray: stored.minimizeToTray !== false,
     setupComplete: stored.setupComplete === true || (stored.setupComplete === undefined && legacyConnection)
   };
 }

@@ -67,14 +67,32 @@
       "description": "Flat, aligned active-work item.",
       "html": "<div class=\"ds-task\"><i></i><div><strong>Prepare launch brief</strong><small>MKTG-71 · In Progress</small></div></div>",
       "css": ".ds-task { display: grid; grid-template-columns: 8px 1fr; gap: 11px; padding: 15px 18px; border-bottom: 1px solid #e4e5ec; color: #171821; background: #f9f9fc; font: 14px 'Segoe UI', sans-serif; } .ds-task:hover { background: #fff; } .ds-task i { width: 8px; height: 8px; margin-top: 5px; border-radius: 3px; background: #d28a26; } .ds-task strong, .ds-task small { display: block; } .ds-task small { margin-top: 6px; color: #686b78; }"
+    },
+    {
+      "name": "Compact Task Row",
+      "kind": "custom",
+      "description": "The dense density: name and state mark only, so the rail carries about twice as many rows.",
+      "html": "<div class=\"ds-task-compact\"><strong>Prepare launch brief</strong><i></i></div>",
+      "css": ".ds-task-compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 8px 16px; border-bottom: 1px solid #e4e5ec; color: #171821; background: #f9f9fc; font: 12px 'Segoe UI', sans-serif; } .ds-task-compact strong { overflow: hidden; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; } .ds-task-compact i { width: 13px; height: 13px; border: 1.5px solid #d28a26; border-radius: 50%; }"
+    },
+    {
+      "name": "Tray Icon",
+      "kind": "custom",
+      "description": "The resident mark in the notification area, menu bar, or system tray. Violet chip on Windows and Linux; a black template image on macOS so the system tints it.",
+      "html": "<span class=\"ds-tray\" title=\"Plane Pin — 6 assigned tasks\">⌘</span>",
+      "css": ".ds-tray { display: grid; width: 16px; height: 16px; border-radius: 4px; place-items: center; color: #fff; background: linear-gradient(#7c68e3, #5b43d6); font-size: 10px; }"
     }
   ],
   "narrative": {
     "northStar": "The Magnetic Work Rail",
     "overview": "A narrow physical strip attached to the edge of a monitor: calm, dense, and immediately legible.",
     "keyCharacteristics": ["Quiet neutral canvas with one restrained violet accent.", "Information-first rows instead of a card grid.", "Compact controls that remain unmistakably interactive."],
-    "rules": [{"name": "The Signal Rule", "body": "Violet marks selection, action, or live state; it is not background decoration.", "section": "colors"}],
-    "dos": ["Do keep the in-progress list visible without navigation.", "Do use native platform affordances for window behavior.", "Do make connection and empty states actionable."],
-    "donts": ["Don't turn each task into a floating dashboard card.", "Don't expose API credentials in renderer code or persisted plain text.", "Don't add task-editing controls until read-only retrieval is proven."]
+    "rules": [
+      {"name": "The Signal Rule", "body": "Violet marks selection, action, or live state; it is not background decoration.", "section": "colors"},
+      {"name": "The Density Rule", "body": "Card density changes what a row says, never where the rail lives. Chrome and density are separate controls.", "section": "layout"},
+      {"name": "The Recoverable Rule", "body": "Never hide the window anywhere the user cannot get it back from. If the tray surface is missing, ordinary window behaviour returns.", "section": "layout"}
+    ],
+    "dos": ["Do keep the in-progress list visible without navigation.", "Do use native platform affordances for window behavior.", "Do make connection and empty states actionable.", "Do call the tray by the name each platform uses for it."],
+    "donts": ["Don't turn each task into a floating dashboard card.", "Don't expose API credentials in renderer code or persisted plain text.", "Don't add task-editing controls until read-only retrieval is proven.", "Don't hide the window anywhere the user cannot get it back from."]
   }
 }
