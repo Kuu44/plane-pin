@@ -21,13 +21,36 @@ test("keeps ordinary settings when a saved token cannot be decrypted", () => {
   assert.equal(loaded.token, "");
 });
 
-test("migrates legacy status settings to the safer all-states filter", () => {
+test("migrates legacy all-project and all-state settings without narrowing tasks", () => {
   const settings = normalizeStoredSettings({ statusGroup: "started" });
-  assert.equal(settings.stateFilterMode, "all");
-  assert.deepEqual(settings.stateNames, []);
+  assert.equal(settings.projectIds, null);
+  assert.equal(settings.stateNames, null);
   assert.equal(settings.refreshMinutes, 5);
   assert.equal(settings.theme, "light");
-  assert.equal(settings.schemaVersion, 1);
+  assert.equal(settings.schemaVersion, 2);
+});
+
+test("migrates legacy single-project and selected-state settings", () => {
+  const settings = normalizeStoredSettings({
+    projectScope: "single",
+    projectId: "MKTG",
+    stateFilterMode: "selected",
+    stateNames: ["In Progress"],
+    memberId: "94cf0210-9909-4f77-b24e-14b2988156e5"
+  });
+  assert.deepEqual(settings.assigneeIds, ["94cf0210-9909-4f77-b24e-14b2988156e5"]);
+  assert.deepEqual(settings.projectIds, ["MKTG"]);
+  assert.deepEqual(settings.stateNames, ["In Progress"]);
+});
+
+test("keeps explicit empty selections distinct from select-all", () => {
+  const settings = normalizeStoredSettings({
+    schemaVersion: 2,
+    projectIds: [],
+    stateNames: []
+  });
+  assert.deepEqual(settings.projectIds, []);
+  assert.deepEqual(settings.stateNames, []);
 });
 
 test("upgrading installs keep running in the tray and keep their roomy cards", () => {

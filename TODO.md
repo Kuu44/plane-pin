@@ -27,3 +27,5 @@
 - [x] Keep Plane Pin in the tray when the window closes or minimises, with a right-click exit.
 - [x] Move the window by pressing and holding anywhere in task-only mode.
 - [x] Add a compact card density that drops the identifier and state label.
+- [x] Add member, project, and workflow-state multiselects with Select all and Select none actions.
+- [x] Filter selected members and exact workflow states reliably on self-hosted Plane responses.

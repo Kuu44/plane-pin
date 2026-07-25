@@ -158,9 +158,9 @@
             <h3>See your assigned work while you work.</h3>
             <p>Plane Pin is a small task rail that can stay above your other apps. Setup takes about two minutes.</p>
             <ul class="benefit-list">
-              <li>Only tasks assigned to your Plane account</li>
-              <li>All projects together, or one project</li>
-              <li>All workflow states, or exactly the states you choose</li>
+              <li>Choose one, several, or every workspace member</li>
+              <li>Mix tasks from any accessible projects</li>
+              <li>Pick the exact workflow states you want to see</li>
             </ul>
           </section>
 
@@ -202,50 +202,45 @@
 
           <section class="setup-step" data-step="3" hidden>
             <div class="step-copy">
-              <h3>Choose where to look</h3>
-              <p id="member-summary">We’ll identify your Plane account and projects after testing the connection.</p>
+              <h3>Whose tasks should appear?</h3>
+              <p id="member-summary">Choose any combination of members from this workspace.</p>
             </div>
             <label id="member-fallback" class="field-label" for="profile-url" hidden>
               Your My Work page address
               <input id="profile-url" type="text" placeholder="https://plane.example.com/workspace/profile/…/assigned/">
             </label>
-            <fieldset class="choice-group">
-              <legend>Projects</legend>
-              <label class="choice-row">
-                <input id="project-all" name="project-scope" type="radio" value="all" checked>
-                <span><strong>All projects</strong><small>Combine every accessible project.</small></span>
-              </label>
-              <label class="choice-row">
-                <input id="project-single" name="project-scope" type="radio" value="single">
-                <span><strong>One project</strong><small>Keep this rail focused.</small></span>
-              </label>
-            </fieldset>
-            <label id="project-select-field" class="field-label" for="project-id" hidden>
-              Project
-              <select id="project-id"></select>
-            </label>
+            <div id="member-options" class="selection-options"></div>
+            <div class="selection-actions">
+              <button id="member-select-all" class="secondary-button" type="button">Select all</button>
+              <button id="member-select-none" class="secondary-button" type="button">Select none</button>
+            </div>
           </section>
 
           <section class="setup-step" data-step="4" hidden>
             <div class="step-copy">
-              <h3>Which workflow states should appear?</h3>
-              <p>These exact state names come directly from your selected Plane projects.</p>
+              <h3>Which projects should appear?</h3>
+              <p>Select any combination of projects. Everything is selected by default.</p>
             </div>
-            <fieldset class="choice-group">
-              <legend>Task filter</legend>
-              <label class="choice-row">
-                <input id="state-all" name="state-mode" type="radio" value="all" checked>
-                <span><strong>All states</strong><small>Show every task assigned to you.</small></span>
-              </label>
-              <label class="choice-row">
-                <input id="state-selected" name="state-mode" type="radio" value="selected">
-                <span><strong>Choose states</strong><small>Select one or several state names.</small></span>
-              </label>
-            </fieldset>
-            <div id="state-options" class="state-options" hidden></div>
+            <div id="project-options" class="selection-options"></div>
+            <div class="selection-actions">
+              <button id="project-select-all" class="secondary-button" type="button">Select all</button>
+              <button id="project-select-none" class="secondary-button" type="button">Select none</button>
+            </div>
           </section>
 
           <section class="setup-step" data-step="5" hidden>
+            <div class="step-copy">
+              <h3>Which workflow states should appear?</h3>
+              <p>These exact state names come directly from the selected projects.</p>
+            </div>
+            <div id="state-options" class="selection-options state-options"></div>
+            <div class="selection-actions">
+              <button id="state-select-all" class="secondary-button" type="button">Select all</button>
+              <button id="state-select-none" class="secondary-button" type="button">Select none</button>
+            </div>
+          </section>
+
+          <section class="setup-step" data-step="6" hidden>
             <div class="step-copy">
               <h3>Make the rail yours</h3>
               <p>These defaults and every connection value can be changed later in Settings.</p>
@@ -317,23 +312,32 @@
           <section class="settings-section">
             <div class="section-heading">
               <h3>Tasks</h3>
-              <p>Results are always limited to the connected Plane account.</p>
+              <p>Choose the members, projects, and workflow states that belong in the rail.</p>
             </div>
-            <fieldset class="compact-fieldset">
-              <legend>Projects</legend>
-              <label><input id="settings-project-all" name="settings-project-scope" type="radio" value="all"> All projects</label>
-              <label><input id="settings-project-single" name="settings-project-scope" type="radio" value="single"> One project</label>
-            </fieldset>
-            <label id="settings-project-field" class="field-label" for="settings-project-id" hidden>
-              Project
-              <select id="settings-project-id"></select>
-            </label>
-            <fieldset class="compact-fieldset">
-              <legend>Workflow states</legend>
-              <label><input id="settings-state-all" name="settings-state-mode" type="radio" value="all"> All states</label>
-              <label><input id="settings-state-selected" name="settings-state-mode" type="radio" value="selected"> Choose states</label>
-            </fieldset>
-            <div id="settings-state-options" class="state-options settings-state-options" hidden></div>
+            <div class="filter-block">
+              <h4>Members</h4>
+              <div id="settings-member-options" class="selection-options settings-selection-options"></div>
+              <div class="selection-actions">
+                <button id="settings-member-select-all" class="secondary-button" type="button">Select all</button>
+                <button id="settings-member-select-none" class="secondary-button" type="button">Select none</button>
+              </div>
+            </div>
+            <div class="filter-block">
+              <h4>Projects</h4>
+              <div id="settings-project-options" class="selection-options settings-selection-options"></div>
+              <div class="selection-actions">
+                <button id="settings-project-select-all" class="secondary-button" type="button">Select all</button>
+                <button id="settings-project-select-none" class="secondary-button" type="button">Select none</button>
+              </div>
+            </div>
+            <div class="filter-block">
+              <h4>Workflow states</h4>
+              <div id="settings-state-options" class="selection-options state-options settings-selection-options"></div>
+              <div class="selection-actions">
+                <button id="settings-state-select-all" class="secondary-button" type="button">Select all</button>
+                <button id="settings-state-select-none" class="secondary-button" type="button">Select none</button>
+              </div>
+            </div>
           </section>
 
           <section class="settings-section">

@@ -41,15 +41,14 @@ async function open(browser, { compactCards, theme }) {
   await page.addInitScript(
     ({ tasks, compactCards, theme }) => {
       const settings = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         baseUrl: "https://plane.example.com",
         workspaceSlug: "engineering",
-        projectId: "",
-        projectScope: "all",
         memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
         memberName: "Kuu",
-        stateFilterMode: "all",
-        stateNames: [],
+        assigneeIds: ["94cf0210-9909-4f77-b24e-14b2988156e5"],
+        projectIds: null,
+        stateNames: null,
         groupByProject: true,
         alwaysOnTop: true,
         refreshMinutes: 5,
@@ -66,7 +65,7 @@ async function open(browser, { compactCards, theme }) {
       window.planePin = {
         getSettings: async () => ({ ...settings }),
         saveSettings: async () => ({ persistedToken: true }),
-        discoverWorkspace: async () => ({ projects: [], member: null }),
+        discoverWorkspace: async () => ({ projects: [], members: [], member: null }),
         setAlwaysOnTop: async (value) => value,
         setPreference: async (key, value) => value,
         minimizeWindow: async () => {},

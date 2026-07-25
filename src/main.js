@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { autoUpdater } = require("electron-updater");
 const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
-const { cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
+const { cleanIds, cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
 const { buildTrayMenuTemplate, trayLocationName, trayTooltip } = require("./tray-menu");
 const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
 
@@ -89,7 +89,7 @@ function loadSettings() {
   const tokenRecord = records[loaded.tokenSourceIndex];
   const needsMigration = primaryRecord
     && (primaryRecord.path !== settingsPath()
-      || primaryRecord.value.schemaVersion !== 1
+      || primaryRecord.value.schemaVersion !== 2
       || (loaded.encryptedToken && tokenRecord?.path !== settingsPath()));
   if (needsMigration) {
     writeStoredSettings({
@@ -104,12 +104,11 @@ function loadSettings() {
 function saveSettings(input) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const workspaceSlug = String(input.workspaceSlug || "").trim();
-  const projectId = String(input.projectId || "").trim();
-  const projectScope = input.projectScope === "single" ? "single" : "all";
   const memberId = String(input.memberId || "").trim();
   const memberName = String(input.memberName || "").trim();
-  const stateFilterMode = input.stateFilterMode === "selected" ? "selected" : "all";
-  const stateNames = cleanStateNames(input.stateNames);
+  const assigneeIds = cleanIds(input.assigneeIds);
+  const projectIds = input.projectIds === null ? null : cleanIds(input.projectIds);
+  const stateNames = input.stateNames === null ? null : cleanStateNames(input.stateNames);
   const groupByProject = Boolean(input.groupByProject);
   const alwaysOnTop = Boolean(input.alwaysOnTop);
   const refreshMinutes = [0, 1, 5, 10, 15, 30].includes(Number(input.refreshMinutes))
@@ -123,26 +122,25 @@ function saveSettings(input) {
   const minimizeToTray = optionalFlag("minimizeToTray");
   const nextToken = String(input.apiToken || "").trim() || sessionToken;
 
-  if (!workspaceSlug || !memberId || !nextToken || (projectScope === "single" && !projectId)) {
+  if (!workspaceSlug || !memberId || !nextToken) {
     throw new Error("Plane URL, workspace, account, and API token are required.");
   }
   if (!isUuid(memberId)) {
     throw new Error("Member ID must be the UUID from your Plane profile URL.");
   }
-  if (stateFilterMode === "selected" && stateNames.length === 0) {
-    throw new Error("Select at least one state or choose All states.");
+  if (assigneeIds.some((id) => !isUuid(id))) {
+    throw new Error("Every selected member must have a valid Plane UUID.");
   }
 
   sessionToken = nextToken;
   const stored = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     baseUrl,
     workspaceSlug,
-    projectId,
-    projectScope,
     memberId,
     memberName,
-    stateFilterMode,
+    assigneeIds,
+    projectIds,
     stateNames,
     groupByProject,
     alwaysOnTop,
@@ -215,14 +213,14 @@ function handleTrayCommand(id) {
   }
   if (id === "always-on-top") {
     const alwaysOnTop = !normalizeStoredSettings(stored).alwaysOnTop;
-    writeStoredSettings({ ...stored, schemaVersion: 1, alwaysOnTop });
+    writeStoredSettings({ ...stored, schemaVersion: 2, alwaysOnTop });
     mainWindow?.setAlwaysOnTop(alwaysOnTop);
     sendTrayCommand("always-on-top");
     return refreshTray();
   }
   if (id === "compact-cards") {
     const compactCards = !normalizeStoredSettings(stored).compactCards;
-    writeStoredSettings({ ...stored, schemaVersion: 1, compactCards });
+    writeStoredSettings({ ...stored, schemaVersion: 2, compactCards });
     sendTrayCommand("compact-cards");
     return refreshTray();
   }
@@ -337,7 +335,7 @@ ipcMain.handle("setup:discover", async (_event, input) => {
 });
 ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
   const alwaysOnTop = Boolean(enabled);
-  writeStoredSettings({ ...readStoredSettings(), alwaysOnTop });
+  writeStoredSettings({ ...readStoredSettings(), schemaVersion: 2, alwaysOnTop });
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   refreshTray();
   return alwaysOnTop;
@@ -349,14 +347,14 @@ ipcMain.handle("settings:set-preference", (_event, key, value) => {
   const stored = readStoredSettings();
   if (key === "theme") {
     const theme = value === "dark" ? "dark" : "light";
-    writeStoredSettings({ ...stored, schemaVersion: 1, theme });
+    writeStoredSettings({ ...stored, schemaVersion: 2, theme });
     nativeTheme.themeSource = theme;
     mainWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
     return theme;
   }
   if (booleanPreferences.has(key)) {
     const next = Boolean(value);
-    writeStoredSettings({ ...stored, schemaVersion: 1, [key]: next });
+    writeStoredSettings({ ...stored, schemaVersion: 2, [key]: next });
     refreshTray();
     return next;
   }

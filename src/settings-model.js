@@ -1,27 +1,40 @@
 "use strict";
 
-const validProjectScopes = new Set(["all", "single"]);
-const validFilterModes = new Set(["all", "selected"]);
 const validRefreshMinutes = new Set([0, 1, 5, 10, 15, 30]);
 const validThemes = new Set(["light", "dark"]);
 
-function cleanStateNames(value) {
+function cleanStrings(value, limit = 100) {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value.map((name) => String(name).trim()).filter(Boolean))].slice(0, 100);
+  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].slice(0, limit);
 }
+
+const cleanIds = (value) => cleanStrings(value, 500);
+const cleanStateNames = (value) => cleanStrings(value, 100);
 
 function normalizeStoredSettings(stored = {}) {
   const legacyConnection = Boolean(stored.baseUrl && stored.workspaceSlug && stored.memberId && stored.apiToken);
+  const isCurrentSchema = Number(stored.schemaVersion) >= 2;
+  const projectIds = isCurrentSchema
+    ? (Array.isArray(stored.projectIds) ? cleanIds(stored.projectIds) : null)
+    : stored.projectScope === "single" && stored.projectId
+      ? cleanIds([stored.projectId])
+      : null;
+  const stateNames = isCurrentSchema
+    ? (Array.isArray(stored.stateNames) ? cleanStateNames(stored.stateNames) : null)
+    : stored.stateFilterMode === "selected"
+      ? cleanStateNames(stored.stateNames)
+      : null;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     baseUrl: String(stored.baseUrl || ""),
     workspaceSlug: String(stored.workspaceSlug || ""),
-    projectId: String(stored.projectId || ""),
-    projectScope: validProjectScopes.has(stored.projectScope) ? stored.projectScope : "all",
     memberId: String(stored.memberId || ""),
     memberName: String(stored.memberName || ""),
-    stateFilterMode: validFilterModes.has(stored.stateFilterMode) ? stored.stateFilterMode : "all",
-    stateNames: cleanStateNames(stored.stateNames),
+    assigneeIds: Array.isArray(stored.assigneeIds)
+      ? cleanIds(stored.assigneeIds)
+      : cleanIds([stored.memberId]),
+    projectIds,
+    stateNames,
     groupByProject: stored.groupByProject !== false,
     alwaysOnTop: stored.alwaysOnTop !== false,
     refreshMinutes: validRefreshMinutes.has(Number(stored.refreshMinutes)) ? Number(stored.refreshMinutes) : 5,
@@ -63,5 +76,5 @@ function loadStoredSettings(storedCandidates, decryptToken) {
   };
 }
 
-module.exports = { cleanStateNames, loadStoredSettings, normalizeStoredSettings };
+module.exports = { cleanIds, cleanStateNames, loadStoredSettings, normalizeStoredSettings };
 

@@ -15,7 +15,7 @@ The first launch opens a guided setup. You will need:
 - A Plane personal access token created under Profile settings
 - Your preferred projects and workflow states
 
-Plane Pin normally identifies the token owner automatically. Older self-hosted versions can use the member UUID from a My Work profile URL as a fallback. Tasks are always restricted to that account. You can show every assigned task or select several exact state names from your projects.
+Plane Pin normally identifies the token owner automatically. Older self-hosted versions can use the member UUID from a My Work profile URL as a fallback. Choose any accessible workspace members, projects, and exact workflow-state names; all are selected by default.
 
 The token is handled only by Electron's main process and persisted with Electron `safeStorage` when OS encryption is available.
 

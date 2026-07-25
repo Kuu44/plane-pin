@@ -7,7 +7,7 @@ const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl } 
 const projectA = { id: "00918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "MKTG", name: "Marketing" };
 const projectB = { id: "10918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "ENG", name: "Engineering" };
 
-test("loads exact selected state names for one assignee across all projects", async () => {
+test("filters exact states and selected members locally across all projects", async () => {
   const requestedUrls = [];
   const request = async (url) => {
     requestedUrls.push(url);
@@ -24,18 +24,17 @@ test("loads exact selected state names for one assignee across all projects", as
       };
     }
     return { ok: true, json: async () => [
-      { id: `${requestedUrls.length}-active`, state: "state-active" },
-      { id: `${requestedUrls.length}-review`, state: "state-review" }
+      { id: `${requestedUrls.length}-active`, state: "state-active", assignees: [{ id: "member-a" }] },
+      { id: `${requestedUrls.length}-review`, state: "state-review", assignees: [{ id: "member-b" }] },
+      { id: `${requestedUrls.length}-other`, state: "state-active", assignees: [{ id: "member-c" }] }
     ] };
   };
 
   const tasks = await fetchAssignedTasks({
     baseUrl: "https://plane.example.com",
     workspaceSlug: "engineering",
-    projectScope: "all",
-    projectId: "",
-    memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
-    stateFilterMode: "selected",
+    projectIds: null,
+    assigneeIds: ["member-a", "member-b"],
     stateNames: ["In Progress"],
     apiToken: "secret"
   }, request);
@@ -44,7 +43,7 @@ test("loads exact selected state names for one assignee across all projects", as
   assert.deepEqual(tasks.map((task) => task.project.identifier).sort(), ["ENG", "MKTG"]);
   assert.ok(requestedUrls.slice(1).every((url) =>
     !url.pathname.endsWith("/work-items/")
-    || url.searchParams.get("assignee") === "94cf0210-9909-4f77-b24e-14b2988156e5"));
+    || (!url.searchParams.has("assignee") && url.searchParams.get("expand") === "assignees,state,project")));
 });
 
 test("limits requests when one project key is selected", async () => {
@@ -60,11 +59,9 @@ test("limits requests when one project key is selected", async () => {
   await fetchAssignedTasks({
     baseUrl: "https://plane.example.com",
     workspaceSlug: "engineering",
-    projectScope: "single",
-    projectId: "MKTG",
-    memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
-    stateFilterMode: "all",
-    stateNames: [],
+    projectIds: ["MKTG"],
+    assigneeIds: ["94cf0210-9909-4f77-b24e-14b2988156e5"],
+    stateNames: null,
     apiToken: "secret"
   }, request);
 
@@ -94,17 +91,19 @@ test("skips projects Plane explicitly marks inaccessible", async () => {
         })
       };
     }
+    if (url.pathname.endsWith("/members/")) {
+      return { ok: true, json: async () => [] };
+    }
     return { ok: true, json: async () => [] };
   };
 
   const config = {
     baseUrl: "https://plane.example.com",
     workspaceSlug: "engineering",
-    projectScope: "all",
-    projectId: "",
+    projectIds: null,
     memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
-    stateFilterMode: "all",
-    stateNames: [],
+    assigneeIds: ["94cf0210-9909-4f77-b24e-14b2988156e5"],
+    stateNames: null,
     apiToken: "secret"
   };
 
@@ -129,6 +128,18 @@ test("discovers the current user, projects, and their exact states", async () =>
         })
       };
     }
+    if (url.pathname.endsWith("/members/")) {
+      return {
+        ok: true,
+        json: async () => [{
+          member: {
+            id: "94cf0210-9909-4f77-b24e-14b2988156e5",
+            display_name: "Kuu",
+            email: "kuu@example.com"
+          }
+        }]
+      };
+    }
     return {
       ok: true,
       json: async () => [{ id: "state-active", name: "Working on", group: "started", color: "#5b43d6" }]
@@ -142,6 +153,11 @@ test("discovers the current user, projects, and their exact states", async () =>
   }, request);
 
   assert.equal(result.member.name, "Kuu");
+  assert.deepEqual(result.members[0], {
+    id: "94cf0210-9909-4f77-b24e-14b2988156e5",
+    name: "Kuu",
+    email: "kuu@example.com"
+  });
   assert.equal(result.projects[0].states[0].name, "Working on");
 });
 
