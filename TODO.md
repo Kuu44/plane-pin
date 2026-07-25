@@ -29,3 +29,5 @@
 - [x] Add a compact card density that drops the identifier and state label.
 - [x] Add member, project, and workflow-state multiselects with Select all and Select none actions.
 - [x] Filter selected members and exact workflow states reliably on self-hosted Plane responses.
+- [x] Add dot and gradient priority appearances with dots as the default.
+- [x] Show project estimates in full and compact task rows.

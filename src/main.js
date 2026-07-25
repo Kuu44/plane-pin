@@ -115,6 +115,7 @@ function saveSettings(input) {
     ? Number(input.refreshMinutes)
     : 5;
   const theme = input.theme === "dark" ? "dark" : "light";
+  const priorityStyle = input.priorityStyle === "gradient" ? "gradient" : "dot";
   const current = normalizeStoredSettings(readStoredSettings());
   const optionalFlag = (key) => (input[key] === undefined ? current[key] : Boolean(input[key]));
   const compactCards = optionalFlag("compactCards");
@@ -147,6 +148,7 @@ function saveSettings(input) {
     refreshMinutes,
     theme,
     compactCards,
+    priorityStyle,
     closeToTray,
     minimizeToTray,
     setupComplete: true
@@ -421,6 +423,7 @@ ipcMain.handle("tasks:list", async () => {
         ? `#${task.sequence_id}`
         : "Work item",
     priority: String(task.priority || "none"),
+    estimate: String(task.estimateLabel || ""),
     targetDate: task.target_date || null,
     stateName: String(task.state?.name || "Unknown state"),
     stateGroup: String(task.state?.group || "unstarted"),

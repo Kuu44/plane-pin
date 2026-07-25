@@ -32,7 +32,8 @@ Windows first, used beside day-to-day work. macOS and Linux packages are built f
 - Can group by project, stay above other windows, or hide all app and window chrome in task-only mode.
 - Stays in the tray when closed or minimised, with a right-click menu that ends in a real exit.
 - Moves by press-and-hold anywhere while the chrome is hidden.
-- Offers two card densities: full metadata, or name and state mark only.
+- Offers two card densities: full metadata, or a compact name, estimate, and state mark.
+- Shows configured project estimates and offers dot or row-gradient priority treatments.
 - Opens task rows in Plane and refreshes automatically on a configurable interval.
 - Supports light and dark themes.
 - Read-only in the MVP.

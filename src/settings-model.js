@@ -2,6 +2,7 @@
 
 const validRefreshMinutes = new Set([0, 1, 5, 10, 15, 30]);
 const validThemes = new Set(["light", "dark"]);
+const validPriorityStyles = new Set(["dot", "gradient"]);
 
 function cleanStrings(value, limit = 100) {
   if (!Array.isArray(value)) return [];
@@ -40,6 +41,7 @@ function normalizeStoredSettings(stored = {}) {
     refreshMinutes: validRefreshMinutes.has(Number(stored.refreshMinutes)) ? Number(stored.refreshMinutes) : 5,
     theme: validThemes.has(stored.theme) ? stored.theme : "light",
     compactCards: stored.compactCards === true,
+    priorityStyle: validPriorityStyles.has(stored.priorityStyle) ? stored.priorityStyle : "dot",
     closeToTray: stored.closeToTray !== false,
     minimizeToTray: stored.minimizeToTray !== false,
     setupComplete: stored.setupComplete === true || (stored.setupComplete === undefined && legacyConnection)

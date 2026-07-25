@@ -30,16 +30,17 @@ const tasks = [
   stateGroup,
   stateColor,
   priority,
+  estimate: ["M", "S", "", "XL", "L", "S"][index],
   projectName,
   projectIdentifier: identifier.split("-")[0],
   targetDate: index === 0 ? "2026-08-04" : null,
   url: "https://plane.example.com/engineering/browse/" + identifier
 }));
 
-async function open(browser, { compactCards, theme }) {
+async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
   const page = await browser.newPage({ viewport: { width: 380, height: 650 } });
   await page.addInitScript(
-    ({ tasks, compactCards, theme }) => {
+    ({ tasks, compactCards, theme, priorityStyle }) => {
       const settings = {
         schemaVersion: 2,
         baseUrl: "https://plane.example.com",
@@ -54,6 +55,7 @@ async function open(browser, { compactCards, theme }) {
         refreshMinutes: 5,
         theme,
         compactCards,
+        priorityStyle,
         closeToTray: true,
         minimizeToTray: true,
         setupComplete: true,
@@ -80,7 +82,7 @@ async function open(browser, { compactCards, theme }) {
         onTrayCommand: () => {}
       };
     },
-    { tasks, compactCards, theme }
+    { tasks, compactCards, theme, priorityStyle }
   );
   await page.goto(page_url);
   await page.waitForSelector(".task-card");
