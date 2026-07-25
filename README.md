@@ -54,3 +54,5 @@ The packaged app also checks for an update after launch. Because the GitHub repo
 When an update is found, `electron-updater` downloads the NSIS installer and installs it when the app exits. GitHub Releases are created automatically when a matching version tag such as `v0.3.0` is pushed.
 
 See `AGENTS.md` for the branch, version, and release rules.
+
+Release history is maintained in `CHANGELOG.md`. The same version entry is used in pull requests, release merge commits, and GitHub Releases.
