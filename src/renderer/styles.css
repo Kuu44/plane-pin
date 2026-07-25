@@ -322,7 +322,7 @@ h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.2; letter-spac
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
   gap: 5px 10px;
   padding: 11px 16px;
   overflow: hidden;
@@ -343,7 +343,7 @@ h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.2; letter-spac
     color-mix(in srgb, var(--priority) 8%, transparent) 32%,
     transparent 62%
   );
-  content: "";
+  content: none;
   pointer-events: none;
 }
 
@@ -351,11 +351,28 @@ h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.2; letter-spac
 .task-card.priority-urgent, .task-card.priority-high { --priority: #d94b5b; }
 .task-card.priority-medium { --priority: #e29a30; }
 .task-card.priority-low { --priority: #43a37a; }
+.priority-dot {
+  width: 8px;
+  height: 8px;
+  grid-row: 1;
+  grid-column: 1;
+  align-self: start;
+  margin-top: 5px;
+  border-radius: 3px;
+  background: var(--priority);
+}
+
+.priority-gradient .task-card { grid-template-columns: minmax(0, 1fr) auto; }
+.priority-gradient .task-card::before { content: ""; }
+.priority-gradient .priority-dot { display: none; }
+.priority-gradient .task-name { grid-column: 1; }
+.priority-gradient .task-meta { grid-column: 1 / -1; }
 .task-card:hover { background: var(--surface-hover); }
 .task-card:active { background: var(--divider); }
 
 .task-name {
   min-width: 0;
+  grid-column: 2;
   overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 550;
@@ -366,7 +383,7 @@ h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.2; letter-spac
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   gap: 6px;
   align-items: center;
   padding-right: 18px;
@@ -384,6 +401,26 @@ h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.2; letter-spac
 
 .task-identifier { font-weight: 650; }
 .due-date { white-space: nowrap; }
+
+.estimate-chip {
+  display: inline-flex;
+  max-width: 80px;
+  min-width: 20px;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  overflow: hidden;
+  border: 1px solid var(--divider-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  background: var(--surface-raised);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .state-chip {
   display: inline-flex;
@@ -760,19 +797,34 @@ kbd {
 .theme-choice span { display: grid; min-height: 36px; border: 1px solid var(--divider-strong); border-radius: 7px; place-items: center; background: var(--surface); font-size: 11px; font-weight: 600; }
 .theme-choice input:checked + span { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .theme-choice input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--accent) 32%, transparent); outline-offset: 2px; }
-.settings-actions { justify-content: flex-end; border-top: 1px solid var(--divider); }
-
-/* Compact cards: the name plus its state mark, nothing else, so the rail carries
-   as many rows as the window height allows. */
-.compact-cards .task-card {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0 9px;
-  align-items: center;
-  padding: 7px 36px 7px 16px;
+.priority-choice legend {
+  display: grid;
+  gap: 3px;
+  color: var(--ink);
+  font-size: 11px;
 }
 
+.priority-choice legend small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 450;
+  line-height: 1.4;
+}
+.settings-actions { justify-content: flex-end; border-top: 1px solid var(--divider); }
+
+/* Compact cards keep the title primary and place estimate then state at the
+   far edge. The external-link arrow is deliberately omitted at this density. */
+.compact-cards .task-card {
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  gap: 0 9px;
+  align-items: center;
+  padding: 7px 16px;
+}
+
+.compact-cards .priority-dot { align-self: center; margin-top: 0; }
+
 .compact-cards .task-name {
-  grid-column: 1;
+  grid-column: 2;
   overflow: hidden;
   font-size: 12px;
   line-height: 1.35;
@@ -783,8 +835,9 @@ kbd {
 .compact-cards .task-meta {
   flex: none;
   grid-row: 1;
-  grid-column: 2;
-  gap: 0;
+  grid-column: 3;
+  gap: 5px;
+  padding-right: 0;
 }
 
 .compact-cards .task-identifier,
@@ -792,21 +845,29 @@ kbd {
 .compact-cards .state-name { display: none; }
 
 .compact-cards .state-chip {
+  order: 2;
   min-height: 0;
   padding: 0;
   border: 0;
   background: transparent;
 }
 
-.compact-cards .open-task-icon {
-  top: 50%;
-  right: 12px;
-  bottom: auto;
-  transform: translate(-3px, -50%);
+.compact-cards .estimate-chip {
+  max-width: 42px;
+  min-width: 18px;
+  min-height: 16px;
+  order: 1;
+  padding: 0 4px;
 }
 
-.compact-cards .task-card:hover .open-task-icon,
-.compact-cards .task-card:focus-visible .open-task-icon { transform: translate(0, -50%); }
+.compact-cards .open-task-icon { display: none; }
+
+.priority-gradient.compact-cards .task-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.priority-gradient.compact-cards .task-name { grid-column: 1; }
+.priority-gradient.compact-cards .task-meta { grid-column: 2; }
 
 .compact-cards .project-heading { padding-block: 5px; }
 

@@ -68,15 +68,27 @@ test("upgrading installs keep running in the tray and keep their roomy cards", (
 });
 
 test("the new window preferences round-trip exactly as stored", () => {
-  const off = normalizeStoredSettings({ compactCards: true, closeToTray: false, minimizeToTray: false });
+  const off = normalizeStoredSettings({
+    compactCards: true,
+    priorityStyle: "gradient",
+    closeToTray: false,
+    minimizeToTray: false
+  });
   assert.equal(off.compactCards, true);
+  assert.equal(off.priorityStyle, "gradient");
   assert.equal(off.closeToTray, false);
   assert.equal(off.minimizeToTray, false);
 });
 
 test("junk values fall back to the safe default rather than a truthy surprise", () => {
-  const junk = normalizeStoredSettings({ compactCards: "yes", closeToTray: 0, minimizeToTray: null });
+  const junk = normalizeStoredSettings({
+    compactCards: "yes",
+    priorityStyle: "rainbow",
+    closeToTray: 0,
+    minimizeToTray: null
+  });
   assert.equal(junk.compactCards, false, "only a real true enables compact cards");
+  assert.equal(junk.priorityStyle, "dot", "priority dots are the default unless gradient is explicit");
   assert.equal(junk.closeToTray, true, "only an explicit false disables close-to-tray");
   assert.equal(junk.minimizeToTray, true);
 });

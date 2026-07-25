@@ -6,6 +6,17 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-25
+
+### Added
+
+- Added a Priority appearance setting with Color dot and Card gradient choices; compact color dots are now the default.
+- Added project estimate labels to full and compact task rows, including configured T-shirt sizes and legacy numeric estimates.
+
+### Changed
+
+- Compact rows now remove the external-link arrow entirely and keep the workflow-state icon at the right edge.
+
 ## [0.8.0] - 2026-07-25
 
 ### Added

@@ -69,6 +69,44 @@ test("limits requests when one project key is selected", async () => {
   assert.match(requestedPaths[1], new RegExp(projectA.id));
 });
 
+test("resolves configured estimate labels and preserves legacy numeric estimates", async () => {
+  const estimateId = "20918ea1-52f7-48bd-abe3-d3efe76ff7dd";
+  const estimatePointId = "30918ea1-52f7-48bd-abe3-d3efe76ff7dd";
+  const request = async (url) => {
+    if (url.pathname.endsWith("/projects/")) {
+      return { ok: true, json: async () => [projectA] };
+    }
+    if (url.pathname.endsWith("/states/")) {
+      return { ok: true, json: async () => [{ id: "state-active", name: "In Progress", group: "started" }] };
+    }
+    if (url.pathname.endsWith("/estimates/")) {
+      return { ok: true, json: async () => ({ id: estimateId }) };
+    }
+    if (url.pathname.endsWith("/estimate-points/")) {
+      return { ok: true, json: async () => [{ id: estimatePointId, key: 2, value: "M" }] };
+    }
+    return {
+      ok: true,
+      json: async () => [
+        { id: "labelled", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: estimatePointId },
+        { id: "legacy", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: 3 },
+        { id: "unknown", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: "40918ea1-52f7-48bd-abe3-d3efe76ff7dd" }
+      ]
+    };
+  };
+
+  const tasks = await fetchAssignedTasks({
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "engineering",
+    projectIds: null,
+    assigneeIds: ["member-a"],
+    stateNames: null,
+    apiToken: "secret"
+  }, request);
+
+  assert.deepEqual(tasks.map((task) => task.estimateLabel), ["M", "3", ""]);
+});
+
 test("skips projects Plane explicitly marks inaccessible", async () => {
   const requestedPaths = [];
   const request = async (url) => {

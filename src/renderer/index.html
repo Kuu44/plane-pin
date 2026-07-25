@@ -353,9 +353,17 @@
               <input id="settings-on-top" type="checkbox">
             </label>
             <label class="preference-row">
-              <span><strong>Compact cards</strong><small>Show only the task name and its state icon, so more work fits on screen.</small></span>
+              <span><strong>Compact cards</strong><small>Show the task name, estimate, and state icon, so more work fits on screen.</small></span>
               <input id="settings-compact-cards" type="checkbox">
             </label>
+            <fieldset class="theme-choice priority-choice">
+              <legend>
+                Priority appearance
+                <small>Use a compact color dot, or tint the whole task row.</small>
+              </legend>
+              <label><input id="settings-priority-dot" name="settings-priority-style" type="radio" value="dot"><span>Color dot</span></label>
+              <label><input id="settings-priority-gradient" name="settings-priority-style" type="radio" value="gradient"><span>Card gradient</span></label>
+            </fieldset>
             <label class="select-preference" for="settings-refresh-minutes">
               <span><strong>Refresh tasks</strong><small>Check Plane automatically while the app is open.</small></span>
               <select id="settings-refresh-minutes">

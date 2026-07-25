@@ -71,7 +71,7 @@ One vertical rail: a frameless title bar, explicit window-state controls, connec
 
 Because compact mode removes the title bar, the whole rail becomes the drag handle: press and hold anywhere and move. A press that travels less than 4px stays a click, so a task still opens. The rail keeps its own hint clear of the floating controls rather than overlapping them.
 
-Card density is a separate axis from chrome. **Compact cards** keeps the name and the state mark and drops the identifier, the state label, and the due date, moving the mark to the right edge on the same line. Density changes what a row says, never where the rail lives.
+Card density is a separate axis from chrome. **Compact cards** keeps the name, estimate, and state mark and drops the identifier, state label, due date, and link arrow. The estimate sits immediately before the state mark, which owns the right edge. Density changes what a row says, never where the rail lives.
 
 macOS keeps native inset traffic lights rather than imitating Windows controls. The custom title area clears their footprint, and task-only mode hides them until the controls return.
 
@@ -87,8 +87,8 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 
 - **Primary action:** water-wave fill, white label, 40px minimum height, 10px corners.
 - **Pin control:** a labeled state button; active uses the water-wave fill and a check, inactive reads “Normal window.”
-- **Task row:** border-separated list item with a left-to-transparent priority gradient, aligned metadata, and a Plane-like boxed state chip.
-- **Compact task row:** the same row at 7px vertical padding, name truncated to one line, state mark unboxed and right-aligned, with the hover link affordance reserved at the far edge. The priority gradient stays, because at this density it is the only remaining priority signal.
+- **Task row:** border-separated list item with a priority dot by default, an optional left-to-transparent priority gradient, aligned metadata, a restrained estimate badge, and a Plane-like boxed state chip.
+- **Compact task row:** the same row at 7px vertical padding, with a one-line name, optional estimate badge, and unboxed state mark at the right edge. It never shows the external-link arrow and uses the selected dot or gradient priority treatment.
 - **Tray icon:** the app mark as a water-blue chip on Windows and Linux, and a black template image on macOS so the system tints it for the active menu bar. Its menu names the platform's own surface — notification area, menu bar, or system tray — and always ends in a real exit.
 - **Input:** cool neutral field with a 1px divider-colored border and water-blue focus state.
 - **Onboarding:** a seven-view progressive dialog with separate member, project, and workflow-state choices that performs real connection setup and ends at the first loaded task list.

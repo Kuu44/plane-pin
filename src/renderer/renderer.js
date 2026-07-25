@@ -67,6 +67,8 @@ const elements = {
   settingsGroupProject: $("#settings-group-project"),
   settingsOnTop: $("#settings-on-top"),
   settingsCompactCards: $("#settings-compact-cards"),
+  settingsPriorityDot: $("#settings-priority-dot"),
+  settingsPriorityGradient: $("#settings-priority-gradient"),
   settingsCloseTray: $("#settings-close-tray"),
   settingsMinimizeTray: $("#settings-minimize-tray"),
   settingsRefreshMinutes: $("#settings-refresh-minutes"),
@@ -656,6 +658,8 @@ function hydrateSettingsForm() {
   elements.settingsGroupProject.checked = settings.groupByProject;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
   elements.settingsCompactCards.checked = settings.compactCards;
+  elements.settingsPriorityDot.checked = settings.priorityStyle !== "gradient";
+  elements.settingsPriorityGradient.checked = settings.priorityStyle === "gradient";
   elements.settingsCloseTray.checked = settings.closeToTray;
   elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.settingsRefreshMinutes.value = String(settings.refreshMinutes);
@@ -733,6 +737,7 @@ async function saveSettingsForm() {
       groupByProject: elements.settingsGroupProject.checked,
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
+      priorityStyle: elements.settingsPriorityGradient.checked ? "gradient" : "dot",
       closeToTray: elements.settingsCloseTray.checked,
       minimizeToTray: elements.settingsMinimizeTray.checked,
       refreshMinutes: Number(elements.settingsRefreshMinutes.value),
@@ -761,14 +766,24 @@ function stateChip(task) {
   return chip;
 }
 
+function estimateChip(task) {
+  const chip = document.createElement("span");
+  chip.className = "estimate-chip";
+  chip.textContent = task.estimate;
+  chip.title = `Estimate: ${task.estimate}`;
+  chip.setAttribute("aria-label", `Estimate ${task.estimate}`);
+  return chip;
+}
+
 function taskRow(task) {
   const item = document.createElement("li");
   const button = document.createElement("button");
   button.className = `task-card priority-${task.priority}`;
   button.type = "button";
   const priority = task.priority && task.priority !== "none" ? ` · ${task.priority} priority` : "";
-  button.setAttribute("aria-label", `Open ${task.identifier}: ${task.name} — ${task.stateName}${priority}`);
-  button.title = `${task.identifier} · ${task.stateName}${priority}\n${task.name}`;
+  const estimate = task.estimate ? ` · estimate ${task.estimate}` : "";
+  button.setAttribute("aria-label", `Open ${task.identifier}: ${task.name} — ${task.stateName}${priority}${estimate}`);
+  button.title = `${task.identifier} · ${task.stateName}${priority}${estimate}\n${task.name}`;
   button.addEventListener("click", async () => {
     try {
       await window.planePin.openTask(task.url);
@@ -778,6 +793,9 @@ function taskRow(task) {
     }
   });
 
+  const priorityDot = document.createElement("span");
+  priorityDot.className = "priority-dot";
+  priorityDot.setAttribute("aria-hidden", "true");
   const name = document.createElement("span");
   name.className = "task-name";
   name.textContent = task.name;
@@ -787,6 +805,7 @@ function taskRow(task) {
   identifier.className = "task-identifier";
   identifier.textContent = task.identifier;
   meta.append(identifier, stateChip(task));
+  if (task.estimate) meta.append(estimateChip(task));
   if (task.targetDate) {
     const due = document.createElement("span");
     due.className = "due-date";
@@ -797,7 +816,7 @@ function taskRow(task) {
   openIcon.className = "open-task-icon";
   openIcon.textContent = "↗";
   openIcon.setAttribute("aria-hidden", "true");
-  button.append(name, meta, openIcon);
+  button.append(priorityDot, name, meta, openIcon);
   item.append(button);
   return item;
 }
@@ -884,6 +903,7 @@ function applySettingsToShell() {
   applyTheme(settings.theme);
   setPinVisual(settings.alwaysOnTop);
   applyCompactCards(settings.compactCards);
+  document.body.classList.toggle("priority-gradient", settings.priorityStyle === "gradient");
   elements.preferOnTop.checked = settings.alwaysOnTop;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
   elements.settingsCloseTray.checked = settings.closeToTray;
