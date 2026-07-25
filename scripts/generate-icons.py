@@ -19,8 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 ASSETS = ROOT / "src" / "renderer" / "assets"
 
-ACCENT_TOP = (124, 104, 227)
-ACCENT_BOTTOM = (91, 67, 214)
+ACCENT_TOP = (39, 211, 236)
+ACCENT_BOTTOM = (7, 90, 203)
 WHITE = (255, 255, 255)
 SUPERSAMPLE = 8
 
@@ -81,7 +81,7 @@ def app_icon(size):
 
 
 def tray_badge(size):
-    """Windows and Linux: a filled violet chip that reads on light and dark bars."""
+    """Windows and Linux: a water-blue chip that reads on light and dark bars."""
     canvas = size * SUPERSAMPLE
     badge = vertical_gradient(canvas, ACCENT_TOP, ACCENT_BOTTOM).convert("RGBA")
     badge.putalpha(rounded_mask(canvas, 0.26))

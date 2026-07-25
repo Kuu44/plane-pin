@@ -6,6 +6,19 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-25
+
+### Changed
+
+- Replaced the violet accent with a layered water-blue wave treatment across active controls, primary actions, onboarding details, accent text, and app/tray icons in both themes.
+- Enlarged every checkbox to a consistent 22px control with a full-row click target.
+- Narrowed the refresh interval selector so its description has more breathing room in the minimum-width window.
+- Moved the task link indicator to the bottom-right corner and tightened full and compact task rows to fit more work vertically.
+
+### Fixed
+
+- Settings now reopen at the last scroll position instead of jumping back to the first connection field.
+
 ## [0.6.0] - 2026-07-25
 
 ### Added

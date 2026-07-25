@@ -39,6 +39,7 @@ const elements = {
   groupByProject: $("#group-by-project"),
   preferOnTop: $("#prefer-on-top"),
   settingsDialog: $("#settings-dialog"),
+  settingsBody: $(".settings-body"),
   settingsForm: $("#settings-form"),
   settingsClose: $("#settings-close"),
   settingsCancel: $("#settings-cancel"),
@@ -105,6 +106,7 @@ let refreshTimer;
 let connectionDraft = { baseUrl: "", workspaceSlug: "" };
 let draftStateNames = [];
 let settingsDraftStateNames = [];
+let settingsScrollTop = 0;
 const windowDrag = window.planePinDrag.createDragTracker();
 let suppressNextClick = false;
 let dragFrame = 0;
@@ -577,7 +579,10 @@ async function openSettings() {
   hydrateSettingsForm();
   elements.settingsError.textContent = "";
   if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
-  requestAnimationFrame(() => elements.settingsPlaneUrl.focus());
+  requestAnimationFrame(() => {
+    elements.settingsPlaneUrl.focus({ preventScroll: true });
+    elements.settingsBody.scrollTop = settingsScrollTop;
+  });
   if (settings.tokenSet && !settings.tokenError) {
     try {
       await testSettingsConnection();
@@ -818,6 +823,9 @@ elements.setupForm.addEventListener("submit", async (event) => {
 
 elements.settingsClose.addEventListener("click", () => elements.settingsDialog.close());
 elements.settingsCancel.addEventListener("click", () => elements.settingsDialog.close());
+elements.settingsBody.addEventListener("scroll", () => {
+  settingsScrollTop = elements.settingsBody.scrollTop;
+});
 elements.settingsTokenVisibility.addEventListener("click", () =>
   togglePassword(elements.settingsToken, elements.settingsTokenVisibility));
 elements.settingsTest.addEventListener("click", async () => {
