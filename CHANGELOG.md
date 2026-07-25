@@ -6,6 +6,32 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-25
+
+### Added
+
+- Added a Plane Pin icon in the Windows notification area, the macOS menu bar, and the Linux system tray. Closing or minimising the window now parks the app there instead of ending it.
+- Added a tray menu that shows or hides the window, refreshes tasks, toggles always on top and compact cards, opens Settings, and exits Plane Pin.
+- Added press-and-hold dragging anywhere in task-only mode, so the rail moves the way it does from the title bar when the controls are visible.
+- Added a Compact cards setting that shows only the task name and its state icon, fitting roughly twice as many tasks on screen.
+- Added Window settings for closing and minimising to the tray, described using each platform's own name for that surface.
+- Added universal macOS and x64 Linux packages. Every version tag builds them on their native operating systems and attaches them to its GitHub Release.
+- Added a Plane Pin application icon and matching tray glyph, including a macOS template image that follows the menu bar's appearance.
+
+### Changed
+
+- Keyboard shortcuts and their tooltips use Command on macOS and Control elsewhere.
+- The release workflow builds macOS and Linux packages on their own runners and publishes them together with the tracked Windows installer.
+- A second launch reveals the running window instead of starting a rival instance and tray icon.
+
+### Fixed
+
+- Linux packages ship a desktop entry whose `StartupWMClass` matches the executable, plus icons at every standard size from 16px to 1024px, so desktops group Plane Pin windows and show a real icon.
+- Desktops without a system tray keep ordinary window behaviour rather than hiding a window that could not be recovered.
+- macOS uses its native traffic-light controls and hides them with the rest of the chrome in task-only mode.
+- Secure-storage guidance now names the operating system credential store instead of referring only to Windows encryption.
+- macOS tray menus avoid unsupported top-level disabled states.
+
 ## [0.5.0] - 2026-07-25
 
 ### Added
@@ -96,7 +122,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Added direct task links, keyboard-accessible controls, visible focus, and reduced-motion support.
 - Added the first Windows NSIS installer and Plane API tests.
 
-[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Kuu44/plane-pin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Kuu44/plane-pin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Kuu44/plane-pin/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Kuu44/plane-pin/compare/v0.3.0...v0.3.1

@@ -61,6 +61,9 @@ const elements = {
   settingsStateOptions: $("#settings-state-options"),
   settingsGroupProject: $("#settings-group-project"),
   settingsOnTop: $("#settings-on-top"),
+  settingsCompactCards: $("#settings-compact-cards"),
+  settingsCloseTray: $("#settings-close-tray"),
+  settingsMinimizeTray: $("#settings-minimize-tray"),
   settingsRefreshMinutes: $("#settings-refresh-minutes"),
   settingsThemeLight: $("#settings-theme-light"),
   settingsThemeDark: $("#settings-theme-dark")
@@ -102,6 +105,28 @@ let refreshTimer;
 let connectionDraft = { baseUrl: "", workspaceSlug: "" };
 let draftStateNames = [];
 let settingsDraftStateNames = [];
+const windowDrag = window.planePinDrag.createDragTracker();
+let suppressNextClick = false;
+let dragFrame = 0;
+let pendingDrag = null;
+let isMac = false;
+
+// macOS users press Command where Windows and Linux users press Control.
+const modifierLabel = () => (isMac ? "⌘" : "Ctrl");
+const modifierHeld = (event) => (isMac ? event.metaKey : event.ctrlKey);
+
+function localiseShortcutLabels() {
+  if (!isMac) return;
+  for (const element of document.querySelectorAll("[data-tooltip]")) {
+    element.dataset.tooltip = element.dataset.tooltip.replace(/Ctrl\+/g, "⌘");
+  }
+  for (const element of document.querySelectorAll("[aria-keyshortcuts]")) {
+    element.setAttribute(
+      "aria-keyshortcuts",
+      element.getAttribute("aria-keyshortcuts").replace(/Control\+/g, "Meta+")
+    );
+  }
+}
 
 function parsePlanePageUrl(value) {
   const url = new URL(String(value).trim());
@@ -123,7 +148,7 @@ function applyTheme(theme) {
   document.body.dataset.theme = settings.theme;
   const dark = settings.theme === "dark";
   elements.themeToggle.setAttribute("aria-label", dark ? "Use light theme" : "Use dark theme");
-  elements.themeToggle.dataset.tooltip = `${dark ? "Light" : "Dark"} theme · Ctrl+Shift+D`;
+  elements.themeToggle.dataset.tooltip = `${dark ? "Light" : "Dark"} theme · ${modifierLabel()}Shift+D`;
   elements.settingsThemeLight.checked = !dark;
   elements.settingsThemeDark.checked = dark;
 }
@@ -136,7 +161,7 @@ async function toggleTheme() {
 function setPinVisual(enabled) {
   elements.pinToggle.setAttribute("aria-pressed", String(enabled));
   elements.pinLabel.textContent = enabled ? "On top" : "Normal window";
-  elements.pinToggle.dataset.tooltip = `${enabled ? "Turn off always on top" : "Keep above other apps"} · Ctrl+Shift+T`;
+  elements.pinToggle.dataset.tooltip = `${enabled ? "Turn off always on top" : "Keep above other apps"} · ${modifierLabel()}Shift+T`;
 }
 
 async function togglePin() {
@@ -150,8 +175,9 @@ async function togglePin() {
 function setCompactMode(enabled) {
   compactMode = enabled;
   document.body.classList.toggle("compact-mode", enabled);
+  window.planePin.setWindowCompactMode(enabled);
   elements.compactToggle.setAttribute("aria-label", enabled ? "Show controls" : "Hide controls");
-  elements.compactToggle.dataset.tooltip = `${enabled ? "Show controls" : "Hide controls"} · Ctrl+Shift+H`;
+  elements.compactToggle.dataset.tooltip = `${enabled ? "Show controls" : "Hide controls"} · ${modifierLabel()}Shift+H`;
   if (enabled) {
     clearTimeout(compactHintTimer);
     elements.compactHint.classList.add("show");
@@ -159,6 +185,51 @@ function setCompactMode(enabled) {
   } else {
     elements.compactHint.classList.remove("show");
   }
+}
+
+function applyCompactCards(enabled) {
+  settings.compactCards = Boolean(enabled);
+  document.body.classList.toggle("compact-cards", settings.compactCards);
+  elements.settingsCompactCards.checked = settings.compactCards;
+}
+
+// Press and hold anywhere in task-only mode to move the window, the way the
+// title bar behaves when the chrome is visible. Movement under the threshold
+// stays a click, so tapping a card still opens it in Plane.
+function beginWindowDrag(event) {
+  suppressNextClick = false;
+  if (!compactMode || event.button !== 0) return;
+  if (elements.setup.open || elements.settingsDialog.open) return;
+  if (!windowDrag.start(event.screenX, event.screenY)) return;
+  window.planePin.startWindowDrag();
+}
+
+function continueWindowDrag(event) {
+  if (!windowDrag.isActive()) return;
+  const delta = windowDrag.move(event.screenX, event.screenY);
+  if (!delta) return;
+  document.body.classList.add("is-dragging-window");
+  // One move per frame: pointer events outrun the window manager otherwise.
+  pendingDrag = delta;
+  if (dragFrame) return;
+  dragFrame = requestAnimationFrame(() => {
+    dragFrame = 0;
+    window.planePin.moveWindowBy(pendingDrag.deltaX, pendingDrag.deltaY);
+  });
+}
+
+function finishWindowDrag() {
+  if (!windowDrag.isActive()) return;
+  const { dragged } = windowDrag.end();
+  suppressNextClick = dragged;
+  if (dragFrame) {
+    cancelAnimationFrame(dragFrame);
+    dragFrame = 0;
+  }
+  if (dragged && pendingDrag) window.planePin.moveWindowBy(pendingDrag.deltaX, pendingDrag.deltaY);
+  pendingDrag = null;
+  document.body.classList.remove("is-dragging-window");
+  window.planePin.endWindowDrag();
 }
 
 function selectedValues(container) {
@@ -487,6 +558,9 @@ function hydrateSettingsForm() {
   elements.settingsStateSelected.checked = settings.stateFilterMode === "selected";
   elements.settingsGroupProject.checked = settings.groupByProject;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
+  elements.settingsCompactCards.checked = settings.compactCards;
+  elements.settingsCloseTray.checked = settings.closeToTray;
+  elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.settingsRefreshMinutes.value = String(settings.refreshMinutes);
   elements.settingsThemeLight.checked = settings.theme !== "dark";
   elements.settingsThemeDark.checked = settings.theme === "dark";
@@ -546,6 +620,9 @@ async function saveSettingsForm() {
       stateNames: elements.settingsStateSelected.checked ? settingsDraftStateNames : [],
       groupByProject: elements.settingsGroupProject.checked,
       alwaysOnTop: elements.settingsOnTop.checked,
+      compactCards: elements.settingsCompactCards.checked,
+      closeToTray: elements.settingsCloseTray.checked,
+      minimizeToTray: elements.settingsMinimizeTray.checked,
       refreshMinutes: Number(elements.settingsRefreshMinutes.value),
       theme: elements.settingsThemeDark.checked ? "dark" : "light"
     });
@@ -565,7 +642,10 @@ async function saveSettingsForm() {
 function stateChip(task) {
   const chip = document.createElement("span");
   chip.className = "state-chip";
-  chip.append(stateGlyph(task.stateGroup, task.stateColor), document.createTextNode(task.stateName));
+  const name = document.createElement("span");
+  name.className = "state-name";
+  name.textContent = task.stateName;
+  chip.append(stateGlyph(task.stateGroup, task.stateColor), name);
   return chip;
 }
 
@@ -574,7 +654,9 @@ function taskRow(task) {
   const button = document.createElement("button");
   button.className = `task-card priority-${task.priority}`;
   button.type = "button";
-  button.setAttribute("aria-label", `Open ${task.identifier}: ${task.name} in your browser`);
+  const priority = task.priority && task.priority !== "none" ? ` · ${task.priority} priority` : "";
+  button.setAttribute("aria-label", `Open ${task.identifier}: ${task.name} — ${task.stateName}${priority}`);
+  button.title = `${task.identifier} · ${task.stateName}${priority}\n${task.name}`;
   button.addEventListener("click", async () => {
     try {
       await window.planePin.openTask(task.url);
@@ -685,12 +767,21 @@ function scheduleAutoRefresh() {
 }
 
 function applySettingsToShell() {
+  isMac = settings.platform === "darwin";
+  document.body.classList.toggle("platform-mac", isMac);
+  localiseShortcutLabels();
   applyTheme(settings.theme);
   setPinVisual(settings.alwaysOnTop);
+  applyCompactCards(settings.compactCards);
   elements.preferOnTop.checked = settings.alwaysOnTop;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
+  elements.settingsCloseTray.checked = settings.closeToTray;
+  elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.listTitle.textContent = filterTitle();
   elements.refresh.disabled = !settings.tokenSet;
+  for (const slot of document.querySelectorAll(".tray-location")) {
+    slot.textContent = settings.trayLocation || "system tray";
+  }
 }
 
 function togglePassword(input, button) {
@@ -746,14 +837,45 @@ elements.settingsForm.addEventListener("submit", async (event) => {
   await saveSettingsForm();
 });
 
+document.addEventListener("mousedown", beginWindowDrag);
+document.addEventListener("mousemove", continueWindowDrag);
+document.addEventListener("mouseup", finishWindowDrag);
+window.addEventListener("blur", () => {
+  windowDrag.cancel();
+  window.planePin.endWindowDrag();
+  if (dragFrame) cancelAnimationFrame(dragFrame);
+  dragFrame = 0;
+  pendingDrag = null;
+  document.body.classList.remove("is-dragging-window");
+});
+// A gesture that moved the window must not also activate what it started on.
+document.addEventListener("click", (event) => {
+  if (!suppressNextClick) return;
+  suppressNextClick = false;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+
+window.planePin.onTrayCommand(async (command) => {
+  if (command === "refresh") return refreshTasks();
+  if (command === "settings") return openSettings();
+  settings = await window.planePin.getSettings();
+  if (command === "compact-cards") return applyCompactCards(settings.compactCards);
+  if (command === "always-on-top") {
+    setPinVisual(settings.alwaysOnTop);
+    elements.preferOnTop.checked = settings.alwaysOnTop;
+    elements.settingsOnTop.checked = settings.alwaysOnTop;
+  }
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && compactMode && !elements.setup.open && !elements.settingsDialog.open) {
     event.preventDefault();
     setCompactMode(false);
     return;
   }
-  if (!event.ctrlKey || !event.shiftKey) {
-    if (event.ctrlKey && event.key === ",") {
+  if (!modifierHeld(event) || !event.shiftKey) {
+    if (modifierHeld(event) && event.key === ",") {
       event.preventDefault();
       openSettings();
     }

@@ -20,7 +20,7 @@ A narrow, read-only desktop companion for Plane rather than another general task
 
 ## Operating Context
 
-Windows first, used beside day-to-day work. The app should remain portable to macOS and Linux through Electron.
+Windows first, used beside day-to-day work. macOS and Linux packages are built from the same Electron source on every version tag. The app lives in the platform's tray surface — notification area, menu bar, or system tray — so it outlives its own window.
 
 ## Capabilities and Constraints
 
@@ -29,7 +29,10 @@ Windows first, used beside day-to-day work. The app should remain portable to ma
 - Automatic account, project, and workflow-state discovery with a profile URL fallback.
 - Shows work items assigned to the configured profile across one or all accessible projects.
 - Shows all assigned work or filters by several exact project state names.
-- Can group by project, stay above other windows, or hide all app and Windows chrome in task-only mode.
+- Can group by project, stay above other windows, or hide all app and window chrome in task-only mode.
+- Stays in the tray when closed or minimised, with a right-click menu that ends in a real exit.
+- Moves by press-and-hold anywhere while the chrome is hidden.
+- Offers two card densities: full metadata, or name and state mark only.
 - Opens task rows in Plane and refreshes automatically on a configurable interval.
 - Supports light and dark themes.
 - Read-only in the MVP.

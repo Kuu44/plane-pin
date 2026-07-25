@@ -9,8 +9,11 @@
 - [x] Optionally group the task list by project.
 - [ ] Test the first real connection against the self-hosted Plane instance.
 - [ ] Review setup friction after that live test and tighten the form again.
-- [ ] Add a proper app icon and code signing before wider distribution.
-- [ ] Build and verify macOS and Linux packages when the Windows workflow is stable.
+- [x] Add a proper app icon for the application, the tray, and the installers.
+- [ ] Sign and notarise the macOS build, and code-sign the Windows installer, before wider distribution.
+- [x] Add macOS and Linux packaging and build both on tag pushes.
+- [ ] Verify the macOS `.dmg` and the Linux `.AppImage`/`.deb` on real hardware, including the tray icon and the task-only drag.
+- [ ] Revisit task-only dragging if Electron exposes a compositor-approved native Wayland move API.
 - [x] Add release branches, versioned builds, upgrade-safe Windows packaging, and update checks.
 - [x] Add guided onboarding with account, project, and workflow-state discovery.
 - [x] Preserve settings and recover gracefully when a saved token cannot be decrypted.
@@ -21,3 +24,6 @@
 - [x] Recover encrypted credentials from backup and legacy settings locations across upgrades.
 - [ ] Choose a public binary-only update feed or provide private GitHub credentials per installed user.
 - [x] Create the Git repository and connect its remote.
+- [x] Keep Plane Pin in the tray when the window closes or minimises, with a right-click exit.
+- [x] Move the window by pressing and holding anywhere in task-only mode.
+- [x] Add a compact card density that drops the identifier and state label.

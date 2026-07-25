@@ -1,14 +1,20 @@
 "use strict";
 
-const { app, BrowserWindow, ipcMain, nativeTheme, safeStorage, shell } = require("electron");
+const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, nativeTheme, safeStorage, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { autoUpdater } = require("electron-updater");
 const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
-const { cleanStateNames, loadStoredSettings } = require("./settings-model");
+const { cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
+const { buildTrayMenuTemplate, trayLocationName, trayTooltip } = require("./tray-menu");
+const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
 
 let mainWindow;
+let tray;
 let sessionToken = "";
+let quitting = false;
+let dragOrigin = null;
+let lastTaskCount = 0;
 const settingsFileName = "settings.json";
 
 const developmentUserDataArgument = process.argv.find((argument) => argument.startsWith("--plane-pin-user-data-dir="));
@@ -110,6 +116,11 @@ function saveSettings(input) {
     ? Number(input.refreshMinutes)
     : 5;
   const theme = input.theme === "dark" ? "dark" : "light";
+  const current = normalizeStoredSettings(readStoredSettings());
+  const optionalFlag = (key) => (input[key] === undefined ? current[key] : Boolean(input[key]));
+  const compactCards = optionalFlag("compactCards");
+  const closeToTray = optionalFlag("closeToTray");
+  const minimizeToTray = optionalFlag("minimizeToTray");
   const nextToken = String(input.apiToken || "").trim() || sessionToken;
 
   if (!workspaceSlug || !memberId || !nextToken || (projectScope === "single" && !projectId)) {
@@ -137,21 +148,121 @@ function saveSettings(input) {
     alwaysOnTop,
     refreshMinutes,
     theme,
+    compactCards,
+    closeToTray,
+    minimizeToTray,
     setupComplete: true
   };
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error("Windows encryption is unavailable, so Plane Pin cannot save the API token safely.");
+    throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the API token safely.");
   }
   stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
   writeStoredSettings(stored);
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   nativeTheme.themeSource = theme;
+  refreshTray();
   return { persistedToken: Boolean(stored.apiToken) };
 }
 
 function publicSettings() {
   const settings = loadSettings();
-  return { ...settings, tokenSet: Boolean(sessionToken) };
+  return {
+    ...settings,
+    tokenSet: Boolean(sessionToken),
+    platform: process.platform,
+    trayLocation: trayLocationName(process.platform)
+  };
+}
+
+function trayImage() {
+  const assets = path.join(__dirname, "renderer", "assets");
+  if (process.platform === "darwin") {
+    const template = nativeImage.createFromPath(path.join(assets, "trayTemplate.png"));
+    template.setTemplateImage(true);
+    return template;
+  }
+  return nativeImage.createFromPath(path.join(assets, "tray.png"));
+}
+
+function windowIsVisible() {
+  return Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized());
+}
+
+function showWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return createWindow();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  refreshTray();
+}
+
+function hideWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.hide();
+  refreshTray();
+}
+
+function sendTrayCommand(command) {
+  mainWindow?.webContents.send("tray:command", command);
+}
+
+function handleTrayCommand(id) {
+  const stored = readStoredSettings();
+  if (id === "show") return windowIsVisible() ? hideWindow() : showWindow();
+  if (id === "quit") {
+    quitting = true;
+    return app.quit();
+  }
+  if (id === "always-on-top") {
+    const alwaysOnTop = !normalizeStoredSettings(stored).alwaysOnTop;
+    writeStoredSettings({ ...stored, schemaVersion: 1, alwaysOnTop });
+    mainWindow?.setAlwaysOnTop(alwaysOnTop);
+    sendTrayCommand("always-on-top");
+    return refreshTray();
+  }
+  if (id === "compact-cards") {
+    const compactCards = !normalizeStoredSettings(stored).compactCards;
+    writeStoredSettings({ ...stored, schemaVersion: 1, compactCards });
+    sendTrayCommand("compact-cards");
+    return refreshTray();
+  }
+  showWindow();
+  sendTrayCommand(id);
+}
+
+function refreshTray() {
+  if (!tray || tray.isDestroyed()) return;
+  const settings = normalizeStoredSettings(readStoredSettings());
+  const connected = Boolean(sessionToken);
+  const template = buildTrayMenuTemplate({
+    windowVisible: windowIsVisible(),
+    alwaysOnTop: settings.alwaysOnTop,
+    compactCards: settings.compactCards,
+    connected,
+    platform: process.platform
+  }).map((item) => (item.type === "separator" ? item : { ...item, click: () => handleTrayCommand(item.id) }));
+  tray.setContextMenu(Menu.buildFromTemplate(template));
+  tray.setToolTip(trayTooltip({ connected, taskCount: lastTaskCount }));
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) return;
+  try {
+    tray = new Tray(trayImage());
+  } catch (error) {
+    // Some Linux desktops ship no status-notifier host. Without a tray icon,
+    // hiding the window would strand the app, so the app keeps ordinary window
+    // behaviour instead (see the close and minimize handlers).
+    tray = null;
+    console.error(`Tray icon unavailable: ${error.message}`);
+    return;
+  }
+  tray.setIgnoreDoubleClickEvents?.(true);
+  // macOS opens the menu on a plain click, so only Windows and Linux get toggle-on-click.
+  if (process.platform !== "darwin") {
+    tray.on("click", () => (windowIsVisible() ? hideWindow() : showWindow()));
+  }
+  refreshTray();
 }
 
 function createWindow() {
@@ -164,7 +275,9 @@ function createWindow() {
     minHeight: 420,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: settings.theme === "dark" ? "#17171a" : "#f7f7f8",
-    frame: false,
+    ...windowChromeOptions(process.platform),
+    show: false,
+    icon: path.join(__dirname, "renderer", "assets", "app-icon.png"),
     title: "Plane Pin",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -174,6 +287,33 @@ function createWindow() {
     }
   });
   mainWindow.removeMenu();
+
+  // Closing and minimising park the app in the tray instead of ending it, so the
+  // task rail stays one click away. Quit from the tray menu really exits.
+  mainWindow.on("close", (event) => {
+    if (!shouldHideToTray({
+      preference: normalizeStoredSettings(readStoredSettings()).closeToTray,
+      quitting,
+      trayAvailable: Boolean(tray)
+    })) return;
+    event.preventDefault();
+    hideWindow();
+  });
+  mainWindow.on("minimize", (event) => {
+    if (!shouldHideToTray({
+      preference: normalizeStoredSettings(readStoredSettings()).minimizeToTray,
+      trayAvailable: Boolean(tray)
+    })) return;
+    event.preventDefault();
+    hideWindow();
+  });
+  mainWindow.on("show", refreshTray);
+  mainWindow.on("hide", refreshTray);
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+    refreshTray();
+  });
+
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
@@ -199,8 +339,12 @@ ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
   const alwaysOnTop = Boolean(enabled);
   writeStoredSettings({ ...readStoredSettings(), alwaysOnTop });
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
+  refreshTray();
   return alwaysOnTop;
 });
+
+const booleanPreferences = new Set(["compactCards", "closeToTray", "minimizeToTray"]);
+
 ipcMain.handle("settings:set-preference", (_event, key, value) => {
   const stored = readStoredSettings();
   if (key === "theme") {
@@ -210,9 +354,43 @@ ipcMain.handle("settings:set-preference", (_event, key, value) => {
     mainWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
     return theme;
   }
+  if (booleanPreferences.has(key)) {
+    const next = Boolean(value);
+    writeStoredSettings({ ...stored, schemaVersion: 1, [key]: next });
+    refreshTray();
+    return next;
+  }
   throw new Error("Unknown preference.");
 });
 ipcMain.handle("window:minimize", () => mainWindow?.minimize());
+ipcMain.handle("window:set-compact-mode", (_event, enabled) => {
+  if (process.platform === "darwin" && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setWindowButtonVisibility(!Boolean(enabled));
+  }
+  return Boolean(enabled);
+});
+// Press-and-hold anywhere in task-only mode moves the window. The renderer sends
+// screen-space deltas; the main process owns the position so multi-monitor
+// coordinates and the maximised guard stay in one place.
+ipcMain.handle("window:drag-start", () => {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMaximized()) {
+    dragOrigin = null;
+    return false;
+  }
+  const [x, y] = mainWindow.getPosition();
+  dragOrigin = { x, y };
+  return true;
+});
+ipcMain.handle("window:drag-move", (_event, deltaX, deltaY) => {
+  if (!dragOrigin || !mainWindow || mainWindow.isDestroyed()) return false;
+  if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return false;
+  mainWindow.setPosition(Math.round(dragOrigin.x + deltaX), Math.round(dragOrigin.y + deltaY));
+  return true;
+});
+ipcMain.handle("window:drag-end", () => {
+  dragOrigin = null;
+  return true;
+});
 ipcMain.handle("window:toggle-maximize", () => {
   if (!mainWindow) return false;
   if (mainWindow.isMaximized()) mainWindow.unmaximize();
@@ -234,6 +412,8 @@ ipcMain.handle("tasks:list", async () => {
     throw new Error("Connect Plane first.");
   }
   const tasks = await fetchAssignedTasks({ ...settings, apiToken: sessionToken });
+  lastTaskCount = tasks.length;
+  refreshTray();
   return tasks.map((task) => ({
     id: String(task.id),
     name: String(task.name || "Untitled work item"),
@@ -253,15 +433,34 @@ ipcMain.handle("tasks:list", async () => {
   }));
 });
 
-app.whenReady().then(() => {
-  app.setAppUserModelId("com.niyalo.planepin");
-  createWindow();
-  startAutoUpdates();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  // A second launch reveals the running rail instead of starting a rival tray icon.
+  app.on("second-instance", showWindow);
+
+  app.whenReady().then(() => {
+    app.setAppUserModelId("com.niyalo.planepin");
+    createTray();
+    createWindow();
+    startAutoUpdates();
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      else showWindow();
+    });
   });
+}
+
+app.on("before-quit", () => {
+  quitting = true;
 });
 
+app.on("will-quit", () => {
+  tray?.destroy();
+  tray = null;
+});
+
+// With a tray icon the app deliberately outlives its window on every platform.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin" && !tray) app.quit();
 });

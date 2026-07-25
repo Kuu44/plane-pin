@@ -133,7 +133,7 @@
     </main>
 
     <div id="compact-hint" class="compact-hint" role="status" aria-live="polite">
-      Press <kbd>Esc</kbd> to show controls
+      Drag anywhere to move · <kbd>Esc</kbd> shows controls
     </div>
 
     <dialog id="setup" class="setup-dialog" aria-labelledby="setup-title">
@@ -197,7 +197,7 @@
                 <button id="token-visibility" type="button" aria-pressed="false">Show</button>
               </span>
             </label>
-            <p class="security-note">Stored with Windows encryption and never exposed in the task list.</p>
+            <p class="security-note">Stored with your operating system’s secure credential storage and never exposed in the task list.</p>
           </section>
 
           <section class="setup-step" data-step="3" hidden>
@@ -348,6 +348,10 @@
               <span><strong>Always on top</strong><small>Keep Plane Pin above other apps.</small></span>
               <input id="settings-on-top" type="checkbox">
             </label>
+            <label class="preference-row">
+              <span><strong>Compact cards</strong><small>Show only the task name and its state icon, so more work fits on screen.</small></span>
+              <input id="settings-compact-cards" type="checkbox">
+            </label>
             <label class="select-preference" for="settings-refresh-minutes">
               <span><strong>Refresh tasks</strong><small>Check Plane automatically while the app is open.</small></span>
               <select id="settings-refresh-minutes">
@@ -365,6 +369,21 @@
               <label><input id="settings-theme-dark" name="settings-theme" type="radio" value="dark"><span>Dark</span></label>
             </fieldset>
           </section>
+
+          <section class="settings-section">
+            <div class="section-heading">
+              <h3>Window</h3>
+              <p id="tray-section-note">Plane Pin keeps a <span class="tray-location">system tray</span> icon. Right-click it to exit.</p>
+            </div>
+            <label class="preference-row">
+              <span><strong>Close to the <span class="tray-location">system tray</span></strong><small>Closing the window keeps Plane Pin running and reachable from its icon.</small></span>
+              <input id="settings-close-tray" type="checkbox">
+            </label>
+            <label class="preference-row">
+              <span><strong>Minimise to the <span class="tray-location">system tray</span></strong><small>Minimising hides the window instead of leaving it on the taskbar.</small></span>
+              <input id="settings-minimize-tray" type="checkbox">
+            </label>
+          </section>
         </div>
 
         <p id="settings-error" class="form-error" role="alert"></p>
@@ -375,6 +394,7 @@
       </form>
     </dialog>
 
+    <script src="./drag-model.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>
