@@ -25,4 +25,24 @@ test("migrates legacy status settings to the safer all-states filter", () => {
   const settings = normalizeStoredSettings({ statusGroup: "started" });
   assert.equal(settings.stateFilterMode, "all");
   assert.deepEqual(settings.stateNames, []);
+  assert.equal(settings.refreshMinutes, 5);
+  assert.equal(settings.theme, "light");
+  assert.equal(settings.schemaVersion, 1);
+});
+
+test("recovers a decryptable token from backup without replacing newer preferences", () => {
+  const loaded = loadStoredSettings([
+    { workspaceSlug: "new-workspace", theme: "dark", apiToken: "broken-primary" },
+    { workspaceSlug: "old-workspace", apiToken: "valid-backup" }
+  ], (encrypted) => {
+    if (encrypted === "broken-primary") throw new Error("decrypt failed");
+    return "recovered-token";
+  });
+
+  assert.equal(loaded.settings.workspaceSlug, "new-workspace");
+  assert.equal(loaded.settings.theme, "dark");
+  assert.equal(loaded.token, "recovered-token");
+  assert.equal(loaded.encryptedToken, "valid-backup");
+  assert.equal(loaded.tokenSourceIndex, 1);
+  assert.equal(loaded.tokenError, false);
 });

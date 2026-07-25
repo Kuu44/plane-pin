@@ -7,10 +7,10 @@ $ErrorActionPreference = "Stop"
 
 if (-not $Version) {
   $packagePath = Join-Path $PSScriptRoot "..\package.json"
-  $Version = [string](Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json).version
+  $Version = [string](Get-Content -LiteralPath $packagePath -Raw -Encoding UTF8 | ConvertFrom-Json).version
 }
 
-$lines = Get-Content -LiteralPath $ChangelogPath
+$lines = Get-Content -LiteralPath $ChangelogPath -Encoding UTF8
 $heading = "## [$Version]"
 $start = -1
 for ($index = 0; $index -lt $lines.Count; $index++) {

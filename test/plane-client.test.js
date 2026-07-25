@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl } = require("../src/plane-client");
+const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl } = require("../src/plane-client");
 
 const projectA = { id: "00918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "MKTG", name: "Marketing" };
 const projectB = { id: "10918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "ENG", name: "Engineering" };
@@ -105,4 +105,14 @@ test("discovers the current user, projects, and their exact states", async () =>
 test("rejects insecure remote Plane URLs", () => {
   assert.throws(() => normalizeBaseUrl("http://plane.example.com"), /must use HTTPS/);
   assert.equal(normalizeBaseUrl("http://localhost:3000/path"), "http://localhost:3000");
+});
+
+test("builds the browser URL used by Plane work items", () => {
+  assert.equal(
+    buildTaskUrl("https://plane.example.com", "engineering", {
+      sequence_id: 17,
+      project: { identifier: "MKTG" }
+    }),
+    "https://plane.example.com/engineering/browse/MKTG-17/"
+  );
 });

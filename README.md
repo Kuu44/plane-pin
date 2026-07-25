@@ -19,6 +19,8 @@ Plane Pin normally identifies the token owner automatically. Older self-hosted v
 
 The token is handled only by Electron's main process and persisted with Electron `safeStorage` when OS encryption is available.
 
+Onboarding appears only when no completed setup exists. The separate Settings dialog remains available afterward and can change the connection, task filters, grouping, refresh interval, theme, and window behavior. Task rows open their Plane issue in the default browser, and the list refreshes every five minutes by default.
+
 For a task URL such as `https://plane.example.com/engineering/browse/MKTG-17/`, setup detects:
 
 - Plane URL: `https://plane.example.com`
@@ -29,6 +31,7 @@ For a task URL such as `https://plane.example.com/engineering/browse/MKTG-17/`, 
 - `Ctrl+Shift+T`: toggle always on top
 - `Ctrl+Shift+H`: toggle task-only compact mode
 - `Ctrl+Shift+R`: refresh tasks
+- `Ctrl+Shift+D`: toggle light/dark theme
 - `Ctrl+,`: open settings
 - `Escape`: leave compact mode
 
@@ -53,7 +56,7 @@ Settings survive both upgrades and normal uninstall/reinstall cycles. On this Wi
 
 That is normally `C:\Users\<you>\AppData\Roaming\plane-pin\settings.json`. The Plane token is encrypted with Windows DPAPI through Electron `safeStorage`; it is not stored as readable text.
 
-Settings are written atomically and the previous valid file is kept as `settings.backup.json`. If Windows cannot unlock the token, Plane Pin preserves the rest of the setup and asks only for a replacement token.
+Settings use one versioned format, are written atomically, and keep the previous valid file as `settings.backup.json`. Upgrade recovery checks that backup plus legacy Plane Pin folder names, then migrates recovered data back to the canonical path. If Windows cannot unlock any saved token, Plane Pin preserves the rest of the setup, opens normally, and asks only for a replacement token in Settings.
 
 The packaged app also checks for an update after launch. Because the GitHub repository is private, that check runs only when `GH_TOKEN` is set for the user launching Plane Pin. Do not put a GitHub token in the source or installer. A public release-only repository or another public HTTPS update feed would let normal installs update without a token.
 

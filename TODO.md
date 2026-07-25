@@ -15,5 +15,9 @@
 - [x] Add guided onboarding with account, project, and workflow-state discovery.
 - [x] Preserve settings and recover gracefully when a saved token cannot be decrypted.
 - [x] Add exact multi-state filtering, an All states option, compact mode, and keyboard shortcuts.
+- [x] Separate one-time onboarding from the complete Settings dialog.
+- [x] Add configurable automatic refresh and browser links for tasks.
+- [x] Add frameless compact mode, light/dark themes, Plane-like state chips, and priority gradients.
+- [x] Recover encrypted credentials from backup and legacy settings locations across upgrades.
 - [ ] Choose a public binary-only update feed or provide private GitHub credentials per installed user.
 - [x] Create the Git repository and connect its remote.

@@ -3,11 +3,29 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:">
     <title>Plane Pin</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
-  <body>
+  <body data-theme="light">
+    <header class="titlebar" aria-label="Window controls">
+      <div class="titlebar-drag">
+        <span class="app-mark" aria-hidden="true">⌖</span>
+        <span>Plane Pin</span>
+      </div>
+      <div class="native-controls">
+        <button id="window-minimize" type="button" aria-label="Minimize">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5h10"></path></svg>
+        </button>
+        <button id="window-maximize" type="button" aria-label="Maximize">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9"></rect></svg>
+        </button>
+        <button id="window-close" class="close-window" type="button" aria-label="Close">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8"></path></svg>
+        </button>
+      </div>
+    </header>
+
     <main class="app-shell">
       <header class="topbar">
         <div class="brand-block">
@@ -30,6 +48,22 @@
             <span class="state-check" aria-hidden="true">✓</span>
           </button>
           <button
+            id="theme-toggle"
+            class="icon-button theme-toggle"
+            type="button"
+            aria-label="Use dark theme"
+            aria-keyshortcuts="Control+Shift+D"
+            data-tooltip="Dark theme · Ctrl+Shift+D"
+          >
+            <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <g class="sun-icon">
+                <circle cx="10" cy="10" r="3"></circle>
+                <path d="M10 2v2m0 12v2M2 10h2m12 0h2M4.3 4.3l1.4 1.4m8.6 8.6 1.4 1.4m0-11.4-1.4 1.4m-8.6 8.6-1.4 1.4"></path>
+              </g>
+              <path class="moon-icon" d="M16.2 12.7A6.4 6.4 0 0 1 7.3 3.8 6.5 6.5 0 1 0 16.2 12.7Z"></path>
+            </svg>
+          </button>
+          <button
             id="compact-toggle"
             class="icon-button compact-toggle"
             type="button"
@@ -38,14 +72,20 @@
             data-tooltip="Hide controls · Ctrl+Shift+H"
           >
             <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M4 6h12M4 10h12M4 14h12"></path>
+              <g class="eye-open-icon">
+                <path d="M2.5 10s2.8-4.3 7.5-4.3 7.5 4.3 7.5 4.3-2.8 4.3-7.5 4.3S2.5 10 2.5 10Z"></path>
+                <circle cx="10" cy="10" r="2.1"></circle>
+              </g>
+              <g class="eye-closed-icon">
+                <path d="M3.2 7.4C2.7 8 2.5 8.5 2.5 8.5s2.8 4.3 7.5 4.3c1 0 1.9-.2 2.7-.5m2.6-1.7c1.4-1.1 2.2-2.1 2.2-2.1s-2.8-4.3-7.5-4.3c-.7 0-1.3.1-1.9.2M3 3l14 14"></path>
+              </g>
             </svg>
           </button>
         </div>
       </header>
 
       <section class="toolbar" aria-label="Task controls">
-        <div>
+        <div class="toolbar-copy">
           <h1 id="list-title">Assigned tasks</h1>
           <p id="count">Finish setup to load your work.</p>
         </div>
@@ -58,22 +98,22 @@
             aria-keyshortcuts="Control+Shift+R"
             data-tooltip="Refresh tasks · Ctrl+Shift+R"
           >
-            <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <svg class="button-icon refresh-icon" viewBox="0 0 20 20" aria-hidden="true">
               <path d="M15.7 7.2A6 6 0 1 0 16 11"></path>
               <path d="M12.7 7.2h3.2V4"></path>
             </svg>
           </button>
           <button
             id="settings-open"
-            class="icon-button"
+            class="icon-button settings-button"
             type="button"
-            aria-label="Connection settings"
+            aria-label="Settings"
             aria-keyshortcuts="Control+,"
             data-tooltip="Settings · Ctrl+,"
           >
-            <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5 5l1.4 1.4M13.6 13.6 15 15M15 5l-1.4 1.4M6.4 13.6 5 15"></path>
-              <circle cx="10" cy="10" r="3"></circle>
+            <svg class="button-icon gear-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M8.4 2.7h3.2l.5 2a6 6 0 0 1 1.2.7l2-.6 1.6 2.8-1.5 1.4a6 6 0 0 1 0 1.4l1.5 1.4-1.6 2.8-2-.6a6 6 0 0 1-1.2.7l-.5 2H8.4l-.5-2a6 6 0 0 1-1.2-.7l-2 .6-1.6-2.8 1.5-1.4a6 6 0 0 1 0-1.4L3.1 7.6l1.6-2.8 2 .6a6 6 0 0 1 1.2-.7l.5-2Z"></path>
+              <circle cx="10" cy="9.7" r="2.3"></circle>
             </svg>
           </button>
         </div>
@@ -82,9 +122,7 @@
       <section id="task-region" class="task-region" aria-live="polite">
         <div id="empty" class="empty-state">
           <div class="empty-glyph" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M7 12.5 10.2 16 17 8.5"></path>
-            </svg>
+            <svg viewBox="0 0 24 24"><path d="M7 12.5 10.2 16 17 8.5"></path></svg>
           </div>
           <h2>Your work, without the tab hunt.</h2>
           <p>Connect Plane once. Plane Pin will keep only tasks assigned to you within reach.</p>
@@ -100,22 +138,20 @@
 
     <dialog id="setup" class="setup-dialog" aria-labelledby="setup-title">
       <form id="setup-form" method="dialog" novalidate>
-        <header class="setup-head">
+        <header class="dialog-head">
           <div>
-            <p id="setup-progress" class="setup-progress">Welcome</p>
+            <p id="setup-progress" class="dialog-kicker">Welcome</p>
             <h2 id="setup-title">Bring your Plane work closer</h2>
           </div>
-          <button id="setup-close" class="icon-button" type="button" aria-label="Close setup">×</button>
+          <button id="setup-close" class="icon-button" type="button" aria-label="Close onboarding">×</button>
         </header>
 
         <div class="setup-body">
           <section class="setup-step" data-step="0">
             <div class="welcome-visual" aria-hidden="true">
               <div class="mini-rail">
-                <span class="mini-brand"></span>
-                <span class="mini-line long"></span>
-                <span class="mini-line"></span>
-                <span class="mini-line short"></span>
+                <span class="mini-brand"></span><span class="mini-line long"></span>
+                <span class="mini-line"></span><span class="mini-line short"></span>
               </div>
               <div class="mini-pin">⌖</div>
             </div>
@@ -131,7 +167,7 @@
           <section class="setup-step" data-step="1" hidden>
             <div class="step-copy">
               <h3>Start from any Plane page</h3>
-              <p>Open Plane in your browser and copy the address from the top bar. A task page or your My Work page both work.</p>
+              <p>Open Plane in your browser and copy its address. A task or My Work page both work.</p>
             </div>
             <label class="field-label" for="plane-page-url">
               Plane page address
@@ -140,7 +176,7 @@
             <div class="example-path">
               <span>Example</span>
               <code>plane.example.com/<strong>my-workspace</strong>/browse/TEAM-12</code>
-              <p>We use the domain and the highlighted workspace name.</p>
+              <p>We use the domain and highlighted workspace name.</p>
             </div>
           </section>
 
@@ -152,7 +188,7 @@
             <ol class="instruction-list">
               <li>In Plane, open your profile or avatar menu.</li>
               <li>Choose <strong>Settings</strong>, then <strong>Personal access tokens</strong>.</li>
-              <li>Select <strong>Add token</strong>, name it “Plane Pin”, and copy it.</li>
+              <li>Select <strong>Add token</strong>, name it “Plane Pin,” and copy it.</li>
             </ol>
             <label class="field-label" for="api-token">
               Personal access token
@@ -161,12 +197,7 @@
                 <button id="token-visibility" type="button" aria-pressed="false">Show</button>
               </span>
             </label>
-            <p id="token-recovery" class="recovery-note" hidden>
-              Your other settings are safe, but Windows could not unlock the saved token. Enter it once more to reconnect.
-            </p>
-            <p class="security-note">
-              Stored with Windows encryption. Plane Pin never puts this token in the task list or browser.
-            </p>
+            <p class="security-note">Stored with Windows encryption and never exposed in the task list.</p>
           </section>
 
           <section class="setup-step" data-step="3" hidden>
@@ -177,7 +208,6 @@
             <label id="member-fallback" class="field-label" for="profile-url" hidden>
               Your My Work page address
               <input id="profile-url" type="text" placeholder="https://plane.example.com/workspace/profile/…/assigned/">
-              <small>Your older Plane version did not identify the token owner automatically. Paste your My Work URL instead.</small>
             </label>
             <fieldset class="choice-group">
               <legend>Projects</legend>
@@ -199,7 +229,7 @@
           <section class="setup-step" data-step="4" hidden>
             <div class="step-copy">
               <h3>Which workflow states should appear?</h3>
-              <p>State is a standard Plane field. Your workspace can give its states custom names, so these choices come directly from your projects.</p>
+              <p>These exact state names come directly from your selected Plane projects.</p>
             </div>
             <fieldset class="choice-group">
               <legend>Task filter</legend>
@@ -209,7 +239,7 @@
               </label>
               <label class="choice-row">
                 <input id="state-selected" name="state-mode" type="radio" value="selected">
-                <span><strong>Choose states</strong><small>Select one or several exact state names.</small></span>
+                <span><strong>Choose states</strong><small>Select one or several state names.</small></span>
               </label>
             </fieldset>
             <div id="state-options" class="state-options" hidden></div>
@@ -218,7 +248,7 @@
           <section class="setup-step" data-step="5" hidden>
             <div class="step-copy">
               <h3>Make the rail yours</h3>
-              <p>You can change these preferences later from Settings.</p>
+              <p>These defaults and every connection value can be changed later in Settings.</p>
             </div>
             <label class="preference-row">
               <span><strong>Group by project</strong><small>Add project headings to the task list.</small></span>
@@ -230,18 +260,117 @@
             </label>
             <div class="shortcut-note">
               <strong>Quick controls</strong>
-              <p>Hover any toolbar button to see its shortcut. Use <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd> for task-only mode.</p>
+              <p>Hover toolbar controls to see shortcuts. Tasks refresh every five minutes by default.</p>
             </div>
           </section>
         </div>
 
         <p id="setup-error" class="form-error" role="alert"></p>
-        <footer class="setup-actions">
+        <footer class="dialog-actions">
           <button id="setup-later" class="text-button" type="button">Set up later</button>
           <div>
             <button id="setup-back" class="secondary-button" type="button">Back</button>
             <button id="setup-next" class="primary-button" type="submit">Get started</button>
           </div>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+      <form id="settings-form" method="dialog" novalidate>
+        <header class="dialog-head">
+          <div>
+            <p class="dialog-kicker">Plane Pin</p>
+            <h2 id="settings-title">Settings</h2>
+          </div>
+          <button id="settings-close" class="icon-button" type="button" aria-label="Close settings">×</button>
+        </header>
+
+        <div class="settings-body">
+          <section class="settings-section">
+            <div class="section-heading">
+              <h3>Connection</h3>
+              <p>Plane Pin reads tasks with your personal access token.</p>
+            </div>
+            <label class="field-label" for="settings-plane-url">
+              Plane page address
+              <input id="settings-plane-url" type="url" autocomplete="url">
+            </label>
+            <label class="field-label" for="settings-token">
+              Personal access token
+              <span class="token-field">
+                <input id="settings-token" type="password" autocomplete="off">
+                <button id="settings-token-visibility" type="button" aria-pressed="false">Show</button>
+              </span>
+              <small id="settings-token-note">Leave blank to keep the encrypted token already saved.</small>
+            </label>
+            <div class="inline-action">
+              <button id="settings-test" class="secondary-button" type="button">Test connection</button>
+              <p id="settings-connection-status" role="status"></p>
+            </div>
+            <label id="settings-profile-field" class="field-label" for="settings-profile-url" hidden>
+              My Work page address
+              <input id="settings-profile-url" type="text">
+            </label>
+          </section>
+
+          <section class="settings-section">
+            <div class="section-heading">
+              <h3>Tasks</h3>
+              <p>Results are always limited to the connected Plane account.</p>
+            </div>
+            <fieldset class="compact-fieldset">
+              <legend>Projects</legend>
+              <label><input id="settings-project-all" name="settings-project-scope" type="radio" value="all"> All projects</label>
+              <label><input id="settings-project-single" name="settings-project-scope" type="radio" value="single"> One project</label>
+            </fieldset>
+            <label id="settings-project-field" class="field-label" for="settings-project-id" hidden>
+              Project
+              <select id="settings-project-id"></select>
+            </label>
+            <fieldset class="compact-fieldset">
+              <legend>Workflow states</legend>
+              <label><input id="settings-state-all" name="settings-state-mode" type="radio" value="all"> All states</label>
+              <label><input id="settings-state-selected" name="settings-state-mode" type="radio" value="selected"> Choose states</label>
+            </fieldset>
+            <div id="settings-state-options" class="state-options settings-state-options" hidden></div>
+          </section>
+
+          <section class="settings-section">
+            <div class="section-heading">
+              <h3>Appearance and updates</h3>
+            </div>
+            <label class="preference-row">
+              <span><strong>Group by project</strong><small>Show project headings in the task rail.</small></span>
+              <input id="settings-group-project" type="checkbox">
+            </label>
+            <label class="preference-row">
+              <span><strong>Always on top</strong><small>Keep Plane Pin above other apps.</small></span>
+              <input id="settings-on-top" type="checkbox">
+            </label>
+            <label class="select-preference" for="settings-refresh-minutes">
+              <span><strong>Refresh tasks</strong><small>Check Plane automatically while the app is open.</small></span>
+              <select id="settings-refresh-minutes">
+                <option value="0">Manual only</option>
+                <option value="1">Every minute</option>
+                <option value="5">Every 5 minutes</option>
+                <option value="10">Every 10 minutes</option>
+                <option value="15">Every 15 minutes</option>
+                <option value="30">Every 30 minutes</option>
+              </select>
+            </label>
+            <fieldset class="theme-choice">
+              <legend>Theme</legend>
+              <label><input id="settings-theme-light" name="settings-theme" type="radio" value="light"><span>Light</span></label>
+              <label><input id="settings-theme-dark" name="settings-theme" type="radio" value="dark"><span>Dark</span></label>
+            </fieldset>
+          </section>
+        </div>
+
+        <p id="settings-error" class="form-error" role="alert"></p>
+        <footer class="dialog-actions settings-actions">
+          <button id="settings-cancel" class="secondary-button" type="button">Cancel</button>
+          <button id="settings-save" class="primary-button" type="submit">Save changes</button>
         </footer>
       </form>
     </dialog>
