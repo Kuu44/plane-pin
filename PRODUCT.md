@@ -12,7 +12,7 @@ Inferred from the brief: one person using a self-hosted Plane workspace who want
 
 ## Product Purpose
 
-Plane Pin keeps the user's current in-progress Plane tasks in a small desktop window that can stay above other programs. Success means the user can connect once, see the right tasks at a glance, refresh them, and toggle always-on-top without opening Plane.
+Plane Pin keeps the user's assigned Plane tasks in a small desktop window that can stay above other programs. Success means a first-time user can connect without understanding Plane's API structure, see the right tasks at a glance, and reduce the app to a task-only rail.
 
 ## Positioning
 
@@ -25,9 +25,11 @@ Windows first, used beside day-to-day work. The app should remain portable to ma
 ## Capabilities and Constraints
 
 - Electron desktop app.
-- Configurable self-hosted Plane base URL, workspace slug, member ID, project scope, and API token.
+- Guided self-hosted Plane setup from a page URL and personal access token.
+- Automatic account, project, and workflow-state discovery with a profile URL fallback.
 - Shows work items assigned to the configured profile across one or all accessible projects.
-- Filters by Plane's shared state groups and can group the list by project.
+- Shows all assigned work or filters by several exact project state names.
+- Can group by project, stay above other windows, or hide its chrome in task-only mode.
 - Read-only in the MVP.
 - Credentials must not be committed or exposed to the renderer.
 - Exact Plane API shape remains to be verified against the user's hosted version.

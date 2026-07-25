@@ -12,5 +12,8 @@
 - [ ] Add a proper app icon and code signing before wider distribution.
 - [ ] Build and verify macOS and Linux packages when the Windows workflow is stable.
 - [x] Add release branches, versioned builds, upgrade-safe Windows packaging, and update checks.
+- [x] Add guided onboarding with account, project, and workflow-state discovery.
+- [x] Preserve settings and recover gracefully when a saved token cannot be decrypted.
+- [x] Add exact multi-state filtering, an All states option, compact mode, and keyboard shortcuts.
 - [ ] Choose a public binary-only update feed or provide private GitHub credentials per installed user.
 - [x] Create the Git repository and connect its remote.

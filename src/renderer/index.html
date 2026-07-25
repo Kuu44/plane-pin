@@ -8,111 +8,241 @@
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <!--
-      THESIS: A magnetic work rail, not a miniature project dashboard.
-      OWN-WORLD: Cool paper, crisp ink, and one restrained Plane-violet signal.
-      STORY: Connect once, keep active work visible, refresh without leaving the current app.
-      FIRST VIEWPORT: Compact header, pin switch, status line, then the task rail.
-      FORM: Single vertical operating rail; selected directly from the brief.
-    -->
     <main class="app-shell">
       <header class="topbar">
-        <div>
+        <div class="brand-block">
           <p class="product-mark"><span aria-hidden="true"></span> Plane Pin</p>
-          <p id="status" class="status">Not connected</p>
+          <p id="status" class="status">Getting ready</p>
         </div>
-        <label class="pin-toggle" title="Keep Plane Pin above other windows">
-          <input id="pin" type="checkbox">
-          <span class="pin-icon" aria-hidden="true">⌖</span>
-          <span>On top</span>
-        </label>
+        <div class="window-controls">
+          <button
+            id="pin-toggle"
+            class="state-button"
+            type="button"
+            aria-pressed="true"
+            aria-keyshortcuts="Control+Shift+T"
+            data-tooltip="Toggle always on top · Ctrl+Shift+T"
+          >
+            <svg class="button-icon pin-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M7.2 3.5h5.6l-.7 4.1 2.2 2.2v1.1H5.7V9.8l2.2-2.2-.7-4.1ZM10 10.9v5.6"></path>
+            </svg>
+            <span id="pin-label">On top</span>
+            <span class="state-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            id="compact-toggle"
+            class="icon-button compact-toggle"
+            type="button"
+            aria-label="Hide controls"
+            aria-keyshortcuts="Control+Shift+H"
+            data-tooltip="Hide controls · Ctrl+Shift+H"
+          >
+            <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M4 6h12M4 10h12M4 14h12"></path>
+            </svg>
+          </button>
+        </div>
       </header>
 
       <section class="toolbar" aria-label="Task controls">
         <div>
-          <h1 id="list-title">In progress</h1>
-          <p id="count">Connect Plane to load tasks.</p>
+          <h1 id="list-title">Assigned tasks</h1>
+          <p id="count">Finish setup to load your work.</p>
         </div>
         <div class="actions">
-          <button id="refresh" class="icon-button" type="button" aria-label="Refresh tasks" title="Refresh tasks">↻</button>
-          <button id="settings-open" class="icon-button" type="button" aria-label="Connection settings" title="Connection settings">···</button>
+          <button
+            id="refresh"
+            class="icon-button"
+            type="button"
+            aria-label="Refresh tasks"
+            aria-keyshortcuts="Control+Shift+R"
+            data-tooltip="Refresh tasks · Ctrl+Shift+R"
+          >
+            <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M15.7 7.2A6 6 0 1 0 16 11"></path>
+              <path d="M12.7 7.2h3.2V4"></path>
+            </svg>
+          </button>
+          <button
+            id="settings-open"
+            class="icon-button"
+            type="button"
+            aria-label="Connection settings"
+            aria-keyshortcuts="Control+,"
+            data-tooltip="Settings · Ctrl+,"
+          >
+            <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5 5l1.4 1.4M13.6 13.6 15 15M15 5l-1.4 1.4M6.4 13.6 5 15"></path>
+              <circle cx="10" cy="10" r="3"></circle>
+            </svg>
+          </button>
         </div>
       </section>
 
       <section id="task-region" class="task-region" aria-live="polite">
         <div id="empty" class="empty-state">
-          <div class="empty-glyph" aria-hidden="true">↗</div>
-          <h2>Your active work, within reach.</h2>
-          <p>Connect your self-hosted Plane workspace to see tasks in the Started group.</p>
-          <button id="connect" class="primary-button" type="button">Connect Plane</button>
+          <div class="empty-glyph" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M7 12.5 10.2 16 17 8.5"></path>
+            </svg>
+          </div>
+          <h2>Your work, without the tab hunt.</h2>
+          <p>Connect Plane once. Plane Pin will keep only tasks assigned to you within reach.</p>
+          <button id="start-setup" class="primary-button" type="button">Set up Plane Pin</button>
         </div>
         <ul id="task-list" class="task-list" hidden></ul>
       </section>
     </main>
 
-    <dialog id="settings" aria-labelledby="settings-title">
-      <form id="settings-form" method="dialog">
-        <div class="dialog-head">
+    <div id="compact-hint" class="compact-hint" role="status" aria-live="polite">
+      Press <kbd>Esc</kbd> to show controls
+    </div>
+
+    <dialog id="setup" class="setup-dialog" aria-labelledby="setup-title">
+      <form id="setup-form" method="dialog" novalidate>
+        <header class="setup-head">
           <div>
-            <h2 id="settings-title">Plane connection</h2>
-            <p>Stored securely and never shown again after saving.</p>
+            <p id="setup-progress" class="setup-progress">Welcome</p>
+            <h2 id="setup-title">Bring your Plane work closer</h2>
           </div>
-          <button id="settings-close" class="icon-button" type="button" aria-label="Close settings">×</button>
+          <button id="setup-close" class="icon-button" type="button" aria-label="Close setup">×</button>
+        </header>
+
+        <div class="setup-body">
+          <section class="setup-step" data-step="0">
+            <div class="welcome-visual" aria-hidden="true">
+              <div class="mini-rail">
+                <span class="mini-brand"></span>
+                <span class="mini-line long"></span>
+                <span class="mini-line"></span>
+                <span class="mini-line short"></span>
+              </div>
+              <div class="mini-pin">⌖</div>
+            </div>
+            <h3>See your assigned work while you work.</h3>
+            <p>Plane Pin is a small task rail that can stay above your other apps. Setup takes about two minutes.</p>
+            <ul class="benefit-list">
+              <li>Only tasks assigned to your Plane account</li>
+              <li>All projects together, or one project</li>
+              <li>All workflow states, or exactly the states you choose</li>
+            </ul>
+          </section>
+
+          <section class="setup-step" data-step="1" hidden>
+            <div class="step-copy">
+              <h3>Start from any Plane page</h3>
+              <p>Open Plane in your browser and copy the address from the top bar. A task page or your My Work page both work.</p>
+            </div>
+            <label class="field-label" for="plane-page-url">
+              Plane page address
+              <input id="plane-page-url" type="url" placeholder="https://plane.example.com/my-workspace/…" autocomplete="url">
+            </label>
+            <div class="example-path">
+              <span>Example</span>
+              <code>plane.example.com/<strong>my-workspace</strong>/browse/TEAM-12</code>
+              <p>We use the domain and the highlighted workspace name.</p>
+            </div>
+          </section>
+
+          <section class="setup-step" data-step="2" hidden>
+            <div class="step-copy">
+              <h3>Create a personal access token</h3>
+              <p>This lets Plane Pin read your assigned tasks. It cannot edit them.</p>
+            </div>
+            <ol class="instruction-list">
+              <li>In Plane, open your profile or avatar menu.</li>
+              <li>Choose <strong>Settings</strong>, then <strong>Personal access tokens</strong>.</li>
+              <li>Select <strong>Add token</strong>, name it “Plane Pin”, and copy it.</li>
+            </ol>
+            <label class="field-label" for="api-token">
+              Personal access token
+              <span class="token-field">
+                <input id="api-token" type="password" autocomplete="off" placeholder="plane_api_…">
+                <button id="token-visibility" type="button" aria-pressed="false">Show</button>
+              </span>
+            </label>
+            <p id="token-recovery" class="recovery-note" hidden>
+              Your other settings are safe, but Windows could not unlock the saved token. Enter it once more to reconnect.
+            </p>
+            <p class="security-note">
+              Stored with Windows encryption. Plane Pin never puts this token in the task list or browser.
+            </p>
+          </section>
+
+          <section class="setup-step" data-step="3" hidden>
+            <div class="step-copy">
+              <h3>Choose where to look</h3>
+              <p id="member-summary">We’ll identify your Plane account and projects after testing the connection.</p>
+            </div>
+            <label id="member-fallback" class="field-label" for="profile-url" hidden>
+              Your My Work page address
+              <input id="profile-url" type="text" placeholder="https://plane.example.com/workspace/profile/…/assigned/">
+              <small>Your older Plane version did not identify the token owner automatically. Paste your My Work URL instead.</small>
+            </label>
+            <fieldset class="choice-group">
+              <legend>Projects</legend>
+              <label class="choice-row">
+                <input id="project-all" name="project-scope" type="radio" value="all" checked>
+                <span><strong>All projects</strong><small>Combine every accessible project.</small></span>
+              </label>
+              <label class="choice-row">
+                <input id="project-single" name="project-scope" type="radio" value="single">
+                <span><strong>One project</strong><small>Keep this rail focused.</small></span>
+              </label>
+            </fieldset>
+            <label id="project-select-field" class="field-label" for="project-id" hidden>
+              Project
+              <select id="project-id"></select>
+            </label>
+          </section>
+
+          <section class="setup-step" data-step="4" hidden>
+            <div class="step-copy">
+              <h3>Which workflow states should appear?</h3>
+              <p>State is a standard Plane field. Your workspace can give its states custom names, so these choices come directly from your projects.</p>
+            </div>
+            <fieldset class="choice-group">
+              <legend>Task filter</legend>
+              <label class="choice-row">
+                <input id="state-all" name="state-mode" type="radio" value="all" checked>
+                <span><strong>All states</strong><small>Show every task assigned to you.</small></span>
+              </label>
+              <label class="choice-row">
+                <input id="state-selected" name="state-mode" type="radio" value="selected">
+                <span><strong>Choose states</strong><small>Select one or several exact state names.</small></span>
+              </label>
+            </fieldset>
+            <div id="state-options" class="state-options" hidden></div>
+          </section>
+
+          <section class="setup-step" data-step="5" hidden>
+            <div class="step-copy">
+              <h3>Make the rail yours</h3>
+              <p>You can change these preferences later from Settings.</p>
+            </div>
+            <label class="preference-row">
+              <span><strong>Group by project</strong><small>Add project headings to the task list.</small></span>
+              <input id="group-by-project" type="checkbox" checked>
+            </label>
+            <label class="preference-row">
+              <span><strong>Keep above other apps</strong><small>Start Plane Pin in always-on-top mode.</small></span>
+              <input id="prefer-on-top" type="checkbox" checked>
+            </label>
+            <div class="shortcut-note">
+              <strong>Quick controls</strong>
+              <p>Hover any toolbar button to see its shortcut. Use <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd> for task-only mode.</p>
+            </div>
+          </section>
         </div>
 
-        <label>
-          Plane URL
-          <input id="base-url" type="url" placeholder="https://plane.example.com" required>
-          <small>Use the start of a task URL, before the workspace name. Example: <strong>https://plane.example.com</strong>.</small>
-        </label>
-        <label>
-          Workspace slug
-          <input id="workspace-slug" type="text" placeholder="engineering" required>
-          <small>Use the first part after the domain. In <strong>/engineering/browse/MKTG-17/</strong>, enter <strong>engineering</strong>.</small>
-        </label>
-        <label>
-          My member ID
-          <input id="member-id" type="text" placeholder="94cf0210-9909-4f77-b24e-14b2988156e5" required>
-          <small>Copy the UUID after <strong>/profile/</strong> in your My Work URL.</small>
-        </label>
-        <label>
-          Projects
-          <select id="project-scope">
-            <option value="all">All accessible projects</option>
-            <option value="single">One project</option>
-          </select>
-        </label>
-        <label id="project-ref-field">
-          Project ID or key
-          <input id="project-id" type="text" placeholder="MKTG">
-          <small>Use the letters before the task number: <strong>MKTG</strong>. A project UUID also works.</small>
-        </label>
-        <label>
-          Status group
-          <select id="status-group">
-            <option value="started">In progress</option>
-            <option value="unstarted">Todo</option>
-            <option value="backlog">Backlog</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <small>Plane maps each project’s custom states into these shared groups.</small>
-        </label>
-        <label class="option-row">
-          <input id="group-by-project" type="checkbox">
-          <span>Group tasks by project</span>
-        </label>
-        <label>
-          Personal access token
-          <span class="token-field">
-            <input id="api-token" type="password" autocomplete="off" placeholder="plane_api_…" required>
-            <button id="token-visibility" type="button" aria-pressed="false">Show</button>
-          </span>
-          <small id="token-hint">Create one in Plane → Profile settings → Personal access tokens.</small>
-        </label>
-
-        <p id="form-error" class="form-error" role="alert"></p>
-        <button id="save" class="primary-button" type="submit">Save and connect</button>
+        <p id="setup-error" class="form-error" role="alert"></p>
+        <footer class="setup-actions">
+          <button id="setup-later" class="text-button" type="button">Set up later</button>
+          <div>
+            <button id="setup-back" class="secondary-button" type="button">Back</button>
+            <button id="setup-next" class="primary-button" type="submit">Get started</button>
+          </div>
+        </footer>
       </form>
     </dialog>
 

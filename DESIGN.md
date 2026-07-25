@@ -67,7 +67,7 @@ Use the native Segoe UI system stack for platform familiarity and dependable ren
 
 ## Layout
 
-One vertical rail: title and pin control, connection/status strip, then a scrollable task list. The window stays useful from 320px wide. Sections use 18px insets and task rows use 15px × 18px padding.
+One vertical rail: title and explicit window-state controls, connection/status strip, then a scrollable task list. The window stays useful from 320px wide. Sections use 18px insets and task rows use 15px × 18px padding. Compact mode removes both header rows and leaves subdued floating controls above the task rail.
 
 ## Elevation & Depth
 
@@ -80,9 +80,11 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 ## Components
 
 - **Primary action:** violet fill, white label, 40px minimum height, 10px corners.
-- **Pin control:** compact tonal toggle whose checked state uses a pale violet field.
+- **Pin control:** a labeled state button; active uses solid violet and a check, inactive reads “Normal window.”
 - **Task row:** border-separated, flat list item with an 8px priority marker and aligned metadata.
 - **Input:** cool neutral field with a 1px divider-colored border and violet focus state.
+- **Onboarding:** a six-view progressive dialog that performs real connection setup and ends at the first loaded task list.
+- **State chooser:** flat selectable rows populated from the connected Plane projects, grouped semantically without hiding custom names.
 
 ## Do's and Don'ts
 
@@ -91,9 +93,11 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 - **Do** keep the in-progress list visible without navigation.
 - **Do** use native platform affordances for window behavior.
 - **Do** make connection and empty states actionable.
+- **Do** reveal one setup decision at a time and keep the task list as the completion moment.
 
 ### Don't:
 
 - **Don't** turn each task into a floating dashboard card.
 - **Don't** expose API credentials in renderer code or persisted plain text.
+- **Don't** describe Plane’s five state groups as if they were the user’s exact workflow state names.
 - **Don't** add task-editing controls until read-only retrieval is proven.

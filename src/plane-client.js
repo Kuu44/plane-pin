@@ -50,41 +50,116 @@ async function fetchPages(initialUrl, apiToken, request) {
   throw new Error("Plane returned more pages than the app can safely load.");
 }
 
+async function fetchCurrentUser(baseUrl, apiToken, request) {
+  const response = await request(new URL("/api/v1/users/me/", baseUrl), {
+    headers: { Accept: "application/json", "X-API-Key": apiToken }
+  });
+  if (response.status === 404 || response.status === 405) return null;
+  if (!response.ok) {
+    throw new Error(response.status === 401 || response.status === 403
+      ? "Check the API token and its workspace access."
+      : `Plane returned HTTP ${response.status}.`);
+  }
+  return response.json();
+}
+
+async function fetchProjects(baseUrl, workspace, apiToken, request) {
+  const projectsUrl = new URL(`/api/v1/workspaces/${workspace}/projects/`, baseUrl);
+  projectsUrl.searchParams.set("per_page", "100");
+  return fetchPages(projectsUrl, apiToken, request);
+}
+
+async function fetchStates(baseUrl, workspace, projectId, apiToken, request) {
+  const statesUrl = new URL(
+    `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/states/`,
+    baseUrl
+  );
+  statesUrl.searchParams.set("per_page", "100");
+  return fetchPages(statesUrl, apiToken, request);
+}
+
+function selectProjects(projects, config) {
+  const selected = config.projectScope === "single"
+    ? projects.filter((project) => project.id === config.projectId
+      || String(project.identifier).toLowerCase() === String(config.projectId).toLowerCase())
+    : projects;
+  if (config.projectScope === "single" && selected.length === 0) {
+    throw new Error(`No Plane project uses the ID or key "${config.projectId}".`);
+  }
+  return selected;
+}
+
+async function discoverWorkspace(config, request = fetch) {
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  const workspace = encodeURIComponent(config.workspaceSlug);
+  const projects = await fetchProjects(baseUrl, workspace, config.apiToken, request);
+  const currentUser = await fetchCurrentUser(baseUrl, config.apiToken, request);
+  const projectsWithStates = await Promise.all(projects.map(async (project) => ({
+    id: String(project.id),
+    identifier: String(project.identifier || ""),
+    name: String(project.name || project.identifier || "Untitled project"),
+    states: (await fetchStates(baseUrl, workspace, project.id, config.apiToken, request)).map((state) => ({
+      id: String(state.id),
+      name: String(state.name || "Unnamed state"),
+      group: String(state.group || ""),
+      color: String(state.color || "")
+    }))
+  })));
+
+  return {
+    member: currentUser?.id ? {
+      id: String(currentUser.id),
+      name: String(currentUser.display_name
+        || [currentUser.first_name, currentUser.last_name].filter(Boolean).join(" ")
+        || currentUser.email
+        || "Plane user")
+    } : null,
+    projects: projectsWithStates
+  };
+}
+
 async function fetchAssignedTasks(config, request = fetch) {
   const baseUrl = normalizeBaseUrl(config.baseUrl);
   const workspace = encodeURIComponent(config.workspaceSlug);
-  const projectsUrl = new URL(`/api/v1/workspaces/${workspace}/projects/`, baseUrl);
-  projectsUrl.searchParams.set("per_page", "100");
-  const projects = await fetchPages(projectsUrl, config.apiToken, request);
-  const selectedProjects = config.projectScope === "single"
-    ? projects.filter((project) => project.id === config.projectId
-      || String(project.identifier).toLowerCase() === config.projectId.toLowerCase())
-    : projects;
-
-  if (config.projectScope === "single" && selectedProjects.length === 0) {
-    throw new Error(`No Plane project uses the ID or key "${config.projectId}".`);
-  }
+  const projects = await fetchProjects(baseUrl, workspace, config.apiToken, request);
+  const selectedProjects = selectProjects(projects, config);
+  const selectedStateNames = new Set(
+    config.stateFilterMode === "selected"
+      ? (config.stateNames || []).map((name) => String(name).toLocaleLowerCase())
+      : []
+  );
 
   const projectTasks = await Promise.all(selectedProjects.map(async (project) => {
     const url = new URL(`/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(project.id)}/work-items/`, baseUrl);
     url.searchParams.set("per_page", "100");
     url.searchParams.set("expand", "state,project");
     url.searchParams.set("assignee", config.memberId);
-    const tasks = await fetchPages(url, config.apiToken, request);
+    const [tasks, states] = await Promise.all([
+      fetchPages(url, config.apiToken, request),
+      fetchStates(baseUrl, workspace, project.id, config.apiToken, request)
+    ]);
+    const statesById = new Map(states.map((state) => [String(state.id), state]));
     return tasks
-      .filter((task) => task.state?.group === config.statusGroup)
-      .map((task) => ({
-        ...task,
-        project: {
-          id: project.id,
-          name: project.name,
-          identifier: project.identifier,
-          ...(typeof task.project === "object" ? task.project : {})
-        }
-      }));
+      .map((task) => {
+        const state = typeof task.state === "object" && task.state
+          ? task.state
+          : statesById.get(String(task.state));
+        return {
+          ...task,
+          state,
+          project: {
+            id: project.id,
+            name: project.name,
+            identifier: project.identifier,
+            ...(typeof task.project === "object" ? task.project : {})
+          }
+        };
+      })
+      .filter((task) => selectedStateNames.size === 0
+        || selectedStateNames.has(String(task.state?.name || "").toLocaleLowerCase()));
   }));
 
   return projectTasks.flat();
 }
 
-module.exports = { fetchAssignedTasks, isUuid, normalizeBaseUrl };
+module.exports = { discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl };

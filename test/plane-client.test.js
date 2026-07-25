@@ -2,25 +2,31 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fetchAssignedTasks, normalizeBaseUrl } = require("../src/plane-client");
+const { discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl } = require("../src/plane-client");
 
 const projectA = { id: "00918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "MKTG", name: "Marketing" };
 const projectB = { id: "10918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "ENG", name: "Engineering" };
 
-test("loads the selected status for one assignee across all projects", async () => {
+test("loads exact selected state names for one assignee across all projects", async () => {
   const requestedUrls = [];
   const request = async (url) => {
     requestedUrls.push(url);
     if (url.pathname.endsWith("/projects/")) {
       return { ok: true, json: async () => [projectA, projectB] };
     }
-    return {
-      ok: true,
-      json: async () => [
-        { id: `${requestedUrls.length}-active`, state: { group: "started" } },
-        { id: `${requestedUrls.length}-queued`, state: { group: "unstarted" } }
-      ]
-    };
+    if (url.pathname.endsWith("/states/")) {
+      return {
+        ok: true,
+        json: async () => [
+          { id: "state-active", name: "In Progress", group: "started" },
+          { id: "state-review", name: "In Review", group: "started" }
+        ]
+      };
+    }
+    return { ok: true, json: async () => [
+      { id: `${requestedUrls.length}-active`, state: "state-active" },
+      { id: `${requestedUrls.length}-review`, state: "state-review" }
+    ] };
   };
 
   const tasks = await fetchAssignedTasks({
@@ -29,14 +35,16 @@ test("loads the selected status for one assignee across all projects", async () 
     projectScope: "all",
     projectId: "",
     memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
-    statusGroup: "started",
+    stateFilterMode: "selected",
+    stateNames: ["In Progress"],
     apiToken: "secret"
   }, request);
 
   assert.equal(tasks.length, 2);
   assert.deepEqual(tasks.map((task) => task.project.identifier).sort(), ["ENG", "MKTG"]);
   assert.ok(requestedUrls.slice(1).every((url) =>
-    url.searchParams.get("assignee") === "94cf0210-9909-4f77-b24e-14b2988156e5"));
+    !url.pathname.endsWith("/work-items/")
+    || url.searchParams.get("assignee") === "94cf0210-9909-4f77-b24e-14b2988156e5"));
 });
 
 test("limits requests when one project key is selected", async () => {
@@ -55,12 +63,43 @@ test("limits requests when one project key is selected", async () => {
     projectScope: "single",
     projectId: "MKTG",
     memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
-    statusGroup: "started",
+    stateFilterMode: "all",
+    stateNames: [],
     apiToken: "secret"
   }, request);
 
   assert.equal(requestedPaths.filter((path) => path.includes("/work-items/")).length, 1);
   assert.match(requestedPaths[1], new RegExp(projectA.id));
+});
+
+test("discovers the current user, projects, and their exact states", async () => {
+  const request = async (url) => {
+    if (url.pathname.endsWith("/projects/")) {
+      return { ok: true, json: async () => [projectA] };
+    }
+    if (url.pathname.endsWith("/users/me/")) {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "94cf0210-9909-4f77-b24e-14b2988156e5",
+          display_name: "Kuu"
+        })
+      };
+    }
+    return {
+      ok: true,
+      json: async () => [{ id: "state-active", name: "Working on", group: "started", color: "#5b43d6" }]
+    };
+  };
+
+  const result = await discoverWorkspace({
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "engineering",
+    apiToken: "secret"
+  }, request);
+
+  assert.equal(result.member.name, "Kuu");
+  assert.equal(result.projects[0].states[0].name, "Working on");
 });
 
 test("rejects insecure remote Plane URLs", () => {
