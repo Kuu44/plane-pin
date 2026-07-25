@@ -3,10 +3,11 @@
 const { app, BrowserWindow, ipcMain, safeStorage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
-const { fetchInProgressTasks, normalizeBaseUrl } = require("./plane-client");
+const { fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
 
 let mainWindow;
 let sessionToken = "";
+const statusGroups = new Set(["backlog", "unstarted", "started", "completed", "cancelled"]);
 
 function settingsPath() {
   return path.join(app.getPath("userData"), "settings.json");
@@ -35,27 +36,58 @@ function loadSettings() {
       baseUrl: stored.baseUrl || "",
       workspaceSlug: stored.workspaceSlug || "",
       projectId: stored.projectId || "",
+      projectScope: stored.projectScope === "single" ? "single" : "all",
+      memberId: stored.memberId || "",
+      statusGroup: statusGroups.has(stored.statusGroup) ? stored.statusGroup : "started",
+      groupByProject: stored.groupByProject !== false,
       alwaysOnTop: stored.alwaysOnTop !== false
     };
   } catch {
-    return { baseUrl: "", workspaceSlug: "", projectId: "", alwaysOnTop: true };
+    return {
+      baseUrl: "",
+      workspaceSlug: "",
+      projectId: "",
+      projectScope: "all",
+      memberId: "",
+      statusGroup: "started",
+      groupByProject: true,
+      alwaysOnTop: true
+    };
   }
 }
 
 function saveSettings(input) {
-  const current = loadSettings();
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const workspaceSlug = String(input.workspaceSlug || "").trim();
   const projectId = String(input.projectId || "").trim();
+  const projectScope = input.projectScope === "single" ? "single" : "all";
+  const memberId = String(input.memberId || "").trim();
+  const statusGroup = String(input.statusGroup || "");
+  const groupByProject = Boolean(input.groupByProject);
   const alwaysOnTop = Boolean(input.alwaysOnTop);
   const nextToken = String(input.apiToken || "").trim() || sessionToken;
 
-  if (!workspaceSlug || !projectId || !nextToken) {
-    throw new Error("Plane URL, workspace slug, project ID or key, and API token are required.");
+  if (!workspaceSlug || !memberId || !nextToken || (projectScope === "single" && !projectId)) {
+    throw new Error("Plane URL, workspace slug, member ID, and API token are required.");
+  }
+  if (!isUuid(memberId)) {
+    throw new Error("Member ID must be the UUID from your Plane profile URL.");
+  }
+  if (!statusGroups.has(statusGroup)) {
+    throw new Error("Choose a valid Plane status group.");
   }
 
   sessionToken = nextToken;
-  const stored = { baseUrl, workspaceSlug, projectId, alwaysOnTop };
+  const stored = {
+    baseUrl,
+    workspaceSlug,
+    projectId,
+    projectScope,
+    memberId,
+    statusGroup,
+    groupByProject,
+    alwaysOnTop
+  };
   if (safeStorage.isEncryptionAvailable()) {
     stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
   }
@@ -100,10 +132,10 @@ ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
 });
 ipcMain.handle("tasks:list", async () => {
   const settings = loadSettings();
-  if (!settings.baseUrl || !settings.workspaceSlug || !settings.projectId || !sessionToken) {
+  if (!settings.baseUrl || !settings.workspaceSlug || !settings.memberId || !sessionToken) {
     throw new Error("Connect Plane first.");
   }
-  const tasks = await fetchInProgressTasks({ ...settings, apiToken: sessionToken });
+  const tasks = await fetchAssignedTasks({ ...settings, apiToken: sessionToken });
   return tasks.map((task) => ({
     id: String(task.id),
     name: String(task.name || "Untitled work item"),
@@ -114,7 +146,9 @@ ipcMain.handle("tasks:list", async () => {
         : "Work item",
     priority: String(task.priority || "none"),
     targetDate: task.target_date || null,
-    stateName: String(task.state?.name || "In Progress")
+    stateName: String(task.state?.name || "Unknown state"),
+    projectName: String(task.project?.name || task.project?.identifier || "Project"),
+    projectIdentifier: String(task.project?.identifier || "")
   }));
 });
 

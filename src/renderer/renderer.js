@@ -4,12 +4,18 @@ const elements = {
   pin: document.querySelector("#pin"),
   status: document.querySelector("#status"),
   count: document.querySelector("#count"),
+  listTitle: document.querySelector("#list-title"),
   refresh: document.querySelector("#refresh"),
   settings: document.querySelector("#settings"),
   form: document.querySelector("#settings-form"),
   baseUrl: document.querySelector("#base-url"),
   workspaceSlug: document.querySelector("#workspace-slug"),
+  memberId: document.querySelector("#member-id"),
+  projectScope: document.querySelector("#project-scope"),
   projectId: document.querySelector("#project-id"),
+  projectRefField: document.querySelector("#project-ref-field"),
+  statusGroup: document.querySelector("#status-group"),
+  groupByProject: document.querySelector("#group-by-project"),
   apiToken: document.querySelector("#api-token"),
   tokenVisibility: document.querySelector("#token-visibility"),
   tokenHint: document.querySelector("#token-hint"),
@@ -20,11 +26,29 @@ const elements = {
 };
 
 let settings;
+const statusLabels = {
+  backlog: "Backlog",
+  unstarted: "Todo",
+  started: "In progress",
+  completed: "Completed",
+  cancelled: "Cancelled"
+};
+
+function updateProjectField() {
+  const singleProject = elements.projectScope.value === "single";
+  elements.projectRefField.hidden = !singleProject;
+  elements.projectId.required = singleProject;
+}
 
 function openSettings() {
   elements.baseUrl.value = settings.baseUrl || "";
   elements.workspaceSlug.value = settings.workspaceSlug || "";
+  elements.memberId.value = settings.memberId || "";
+  elements.projectScope.value = settings.projectScope || "all";
   elements.projectId.value = settings.projectId || "";
+  elements.statusGroup.value = settings.statusGroup || "started";
+  elements.groupByProject.checked = settings.groupByProject;
+  updateProjectField();
   elements.apiToken.value = "";
   elements.apiToken.type = "password";
   elements.tokenVisibility.textContent = "Show";
@@ -38,8 +62,7 @@ function openSettings() {
   elements.settings.showModal();
 }
 
-function renderTasks(tasks) {
-  elements.taskList.replaceChildren(...tasks.map((task) => {
+function taskRow(task) {
     const row = document.createElement("li");
     row.className = "task-row";
 
@@ -71,16 +94,41 @@ function renderTasks(tasks) {
     body.append(name, meta);
     row.append(priority, body);
     return row;
-  }));
+}
+
+function projectHeading(projectName, count) {
+  const heading = document.createElement("li");
+  heading.className = "project-heading";
+  const name = document.createElement("span");
+  name.textContent = projectName;
+  const total = document.createElement("span");
+  total.textContent = String(count);
+  heading.append(name, total);
+  return heading;
+}
+
+function renderTasks(tasks) {
+  const rows = [];
+  if (settings.groupByProject) {
+    const projects = Map.groupBy(tasks, (task) => task.projectName);
+    for (const [projectName, projectTasks] of projects) {
+      rows.push(projectHeading(projectName, projectTasks.length), ...projectTasks.map(taskRow));
+    }
+  } else {
+    rows.push(...tasks.map(taskRow));
+  }
+  elements.taskList.replaceChildren(...rows);
 
   elements.taskList.hidden = tasks.length === 0;
   elements.empty.hidden = tasks.length > 0;
-  elements.empty.querySelector("h2").textContent = tasks.length ? "" : "Nothing is in progress.";
+  const status = statusLabels[settings.statusGroup];
+  elements.listTitle.textContent = status;
+  elements.empty.querySelector("h2").textContent = tasks.length ? "" : `Nothing in ${status.toLowerCase()}.`;
   elements.empty.querySelector("p").textContent = tasks.length
     ? ""
-    : "Tasks will appear here when their Plane state moves into the Started group.";
+    : "Assigned tasks will appear here when they enter this status group.";
   elements.empty.querySelector("#connect").hidden = true;
-  elements.count.textContent = `${tasks.length} active ${tasks.length === 1 ? "task" : "tasks"}`;
+  elements.count.textContent = `${tasks.length} assigned ${tasks.length === 1 ? "task" : "tasks"}`;
   elements.status.textContent = "Connected";
 }
 
@@ -109,6 +157,7 @@ elements.refresh.addEventListener("click", refreshTasks);
 document.querySelector("#settings-open").addEventListener("click", openSettings);
 document.querySelector("#connect").addEventListener("click", openSettings);
 document.querySelector("#settings-close").addEventListener("click", () => elements.settings.close());
+elements.projectScope.addEventListener("change", updateProjectField);
 elements.tokenVisibility.addEventListener("click", () => {
   const visible = elements.apiToken.type === "password";
   elements.apiToken.type = visible ? "text" : "password";
@@ -124,7 +173,11 @@ elements.form.addEventListener("submit", async (event) => {
     await window.planePin.saveSettings({
       baseUrl: elements.baseUrl.value,
       workspaceSlug: elements.workspaceSlug.value,
+      memberId: elements.memberId.value,
+      projectScope: elements.projectScope.value,
       projectId: elements.projectId.value,
+      statusGroup: elements.statusGroup.value,
+      groupByProject: elements.groupByProject.checked,
       apiToken: elements.apiToken.value,
       alwaysOnTop: elements.pin.checked
     });
@@ -141,7 +194,8 @@ elements.form.addEventListener("submit", async (event) => {
 async function init() {
   settings = await window.planePin.getSettings();
   elements.pin.checked = settings.alwaysOnTop;
-  const connected = Boolean(settings.baseUrl && settings.tokenSet);
+  elements.listTitle.textContent = statusLabels[settings.statusGroup];
+  const connected = Boolean(settings.baseUrl && settings.memberId && settings.tokenSet);
   elements.refresh.disabled = !connected;
   if (connected) await refreshTasks();
 }

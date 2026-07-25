@@ -30,7 +30,7 @@
 
       <section class="toolbar" aria-label="Task controls">
         <div>
-          <h1>In progress</h1>
+          <h1 id="list-title">In progress</h1>
           <p id="count">Connect Plane to load tasks.</p>
         </div>
         <div class="actions">
@@ -71,9 +71,36 @@
           <small>Use the first part after the domain. In <strong>/engineering/browse/MKTG-17/</strong>, enter <strong>engineering</strong>.</small>
         </label>
         <label>
+          My member ID
+          <input id="member-id" type="text" placeholder="94cf0210-9909-4f77-b24e-14b2988156e5" required>
+          <small>Copy the UUID after <strong>/profile/</strong> in your My Work URL.</small>
+        </label>
+        <label>
+          Projects
+          <select id="project-scope">
+            <option value="all">All accessible projects</option>
+            <option value="single">One project</option>
+          </select>
+        </label>
+        <label id="project-ref-field">
           Project ID or key
-          <input id="project-id" type="text" placeholder="MKTG" required>
+          <input id="project-id" type="text" placeholder="MKTG">
           <small>Use the letters before the task number: <strong>MKTG</strong>. A project UUID also works.</small>
+        </label>
+        <label>
+          Status group
+          <select id="status-group">
+            <option value="started">In progress</option>
+            <option value="unstarted">Todo</option>
+            <option value="backlog">Backlog</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <small>Plane maps each project’s custom states into these shared groups.</small>
+        </label>
+        <label class="option-row">
+          <input id="group-by-project" type="checkbox">
+          <span>Group tasks by project</span>
         </label>
         <label>
           Personal access token

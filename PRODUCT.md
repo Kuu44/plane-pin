@@ -25,8 +25,9 @@ Windows first, used beside day-to-day work. The app should remain portable to ma
 ## Capabilities and Constraints
 
 - Electron desktop app.
-- Configurable self-hosted Plane base URL, workspace slug, project ID, and API token.
-- Shows work items whose state group is `started` ("In Progress").
+- Configurable self-hosted Plane base URL, workspace slug, member ID, project scope, and API token.
+- Shows work items assigned to the configured profile across one or all accessible projects.
+- Filters by Plane's shared state groups and can group the list by project.
 - Read-only in the MVP.
 - Credentials must not be committed or exposed to the renderer.
 - Exact Plane API shape remains to be verified against the user's hosted version.

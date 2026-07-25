@@ -7,6 +7,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -15,9 +16,9 @@ body {
   background: #f6f7fb;
 }
 
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 
-button:focus-visible, input:focus-visible {
+button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid rgba(91, 67, 214, 0.28);
   outline-offset: 2px;
 }
@@ -143,6 +144,20 @@ h1 {
   list-style: none;
 }
 
+.project-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 18px;
+  border-bottom: 1px solid #d7d8e1;
+  color: #4e5060;
+  background: #ececf2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .task-row {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr);
@@ -244,6 +259,7 @@ dialog {
   color: #171821;
   background: #ffffff;
   box-shadow: 0 18px 60px rgba(25, 23, 51, 0.24);
+  overflow: hidden;
 }
 
 dialog::backdrop { background: rgba(23, 24, 33, 0.38); }
@@ -274,7 +290,7 @@ dialog::backdrop { background: rgba(23, 24, 33, 0.38); }
   font-weight: 700;
 }
 
-#settings-form input {
+#settings-form input:not([type="checkbox"]), #settings-form select {
   width: 100%;
   min-height: 40px;
   padding: 9px 11px;
@@ -284,7 +300,7 @@ dialog::backdrop { background: rgba(23, 24, 33, 0.38); }
   background: #fafafd;
 }
 
-#settings-form input:focus { border-color: #5b43d6; }
+#settings-form input:focus, #settings-form select:focus { border-color: #5b43d6; }
 #settings-form small { color: #737684; font-weight: 400; line-height: 1.4; }
 #settings-form small strong { color: #4a4d5a; font-weight: 650; }
 
@@ -312,6 +328,20 @@ dialog::backdrop { background: rgba(23, 24, 33, 0.38); }
 }
 
 .token-field button:hover { background: #ddd7ff; }
+
+.option-row {
+  display: flex !important;
+  grid-template-columns: none;
+  gap: 9px !important;
+  align-items: center;
+  min-height: 34px;
+}
+
+.option-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: #5b43d6;
+}
 
 .form-error {
   min-height: 17px;
