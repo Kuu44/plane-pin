@@ -6,6 +6,13 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-26
+
+### Changed
+
+- Simplified onboarding and Settings to ask for the Plane workspace Home address, with beginner-friendly steps and a direct workspace-URL example.
+- Updated connection validation to explain that the workspace name must be present in the pasted Home address.
+
 ## [0.9.0] - 2026-07-25
 
 ### Added

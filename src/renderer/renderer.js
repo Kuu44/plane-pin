@@ -147,7 +147,7 @@ function parsePlanePageUrl(value) {
     throw new Error("Plane must use an HTTPS address.");
   }
   const workspaceSlug = url.pathname.split("/").filter(Boolean)[0];
-  if (!workspaceSlug) throw new Error("Paste a Plane page that includes your workspace name.");
+  if (!workspaceSlug) throw new Error("Paste your Plane workspace home address, including the workspace name.");
   return { baseUrl: url.origin, workspaceSlug };
 }
 
