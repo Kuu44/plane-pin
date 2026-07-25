@@ -11,7 +11,7 @@ npm.cmd start
 
 The first launch opens a guided setup. You will need:
 
-- Any page address from your logged-in Plane workspace
+- The Home page address for the Plane workspace you want to connect
 - A Plane personal access token created under Profile settings
 - Your preferred projects and workflow states
 
@@ -21,10 +21,10 @@ The token is handled only by Electron's main process and persisted with Electron
 
 Onboarding appears only when no completed setup exists. The separate Settings dialog remains available afterward and can change the connection, task filters, grouping, refresh interval, theme, card density, priority appearance, and window behavior. Task rows open their Plane issue in the default browser, show the configured estimate when one exists, and refresh every five minutes by default.
 
-For a task URL such as `https://plane.example.com/engineering/browse/MKTG-17/`, setup detects:
+For a workspace Home address such as `https://plane.example.com/engineering/`, setup detects:
 
 - Plane URL: `https://plane.example.com`
-- workspace: `engineering`
+- workspace slug: `engineering`
 
 ## Window behaviour
 

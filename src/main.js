@@ -124,7 +124,7 @@ function saveSettings(input) {
   const nextToken = String(input.apiToken || "").trim() || sessionToken;
 
   if (!workspaceSlug || !memberId || !nextToken) {
-    throw new Error("Plane URL, workspace, account, and API token are required.");
+    throw new Error("Workspace home address, account, and API token are required.");
   }
   if (!isUuid(memberId)) {
     throw new Error("Member ID must be the UUID from your Plane profile URL.");

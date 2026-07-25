@@ -31,3 +31,4 @@
 - [x] Filter selected members and exact workflow states reliably on self-hosted Plane responses.
 - [x] Add dot and gradient priority appearances with dots as the default.
 - [x] Show project estimates in full and compact task rows.
+- [x] Standardise connection setup on the Plane workspace Home address.

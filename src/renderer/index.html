@@ -166,17 +166,22 @@
 
           <section class="setup-step" data-step="1" hidden>
             <div class="step-copy">
-              <h3>Start from any Plane page</h3>
-              <p>Open Plane in your browser and copy its address. A task or My Work page both work.</p>
+              <h3>Paste your workspace home address</h3>
+              <p>The site address and workspace name Plane Pin needs are both in this one URL.</p>
+              <ol class="instruction-list">
+                <li>Open Plane in your browser and select the workspace you want to connect.</li>
+                <li>Go to that workspace’s <strong>Home</strong> page.</li>
+                <li>Copy the address from your browser and paste it below.</li>
+              </ol>
             </div>
             <label class="field-label" for="plane-page-url">
-              Plane page address
-              <input id="plane-page-url" type="url" placeholder="https://plane.example.com/my-workspace/…" autocomplete="url">
+              Workspace home address
+              <input id="plane-page-url" type="url" placeholder="https://plane.example.com/my-workspace/" autocomplete="url">
             </label>
             <div class="example-path">
               <span>Example</span>
-              <code>plane.example.com/<strong>my-workspace</strong>/browse/TEAM-12</code>
-              <p>We use the domain and highlighted workspace name.</p>
+              <code>https://plane.example.com/<strong>my-workspace</strong>/</code>
+              <p>The highlighted part is the workspace slug Plane Pin needs.</p>
             </div>
           </section>
 
@@ -288,8 +293,9 @@
               <p>Plane Pin reads tasks with your personal access token.</p>
             </div>
             <label class="field-label" for="settings-plane-url">
-              Plane page address
-              <input id="settings-plane-url" type="url" autocomplete="url">
+              Workspace home address
+              <input id="settings-plane-url" type="url" placeholder="https://plane.example.com/my-workspace/" autocomplete="url">
+              <small>In Plane, open this workspace’s Home page and paste the address from your browser.</small>
             </label>
             <label class="field-label" for="settings-token">
               Personal access token

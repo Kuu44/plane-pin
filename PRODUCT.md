@@ -25,7 +25,7 @@ Windows first, used beside day-to-day work. macOS and Linux packages are built f
 ## Capabilities and Constraints
 
 - Electron desktop app.
-- Guided self-hosted Plane setup from a page URL and personal access token.
+- Guided self-hosted Plane setup from the workspace Home URL and personal access token.
 - Automatic account, member, project, and workflow-state discovery with a profile URL fallback.
 - Shows work items assigned to any selected workspace members across any selected accessible projects.
 - Filters by any combination of exact workflow-state names.
