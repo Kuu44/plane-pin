@@ -1,6 +1,7 @@
 name: Publish release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -22,6 +23,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Confirm the tag matches the tracked Windows release
+        if: github.ref_type == 'tag'
         shell: pwsh
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
@@ -81,6 +83,7 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: package
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

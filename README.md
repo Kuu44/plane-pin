@@ -62,6 +62,8 @@ Commit source changes before running the release command. It tests and packages 
 
 macOS and Linux packages are not built on Windows and are not committed to `builds/`. Pushing a version tag builds them on GitHub-hosted macOS and Ubuntu runners and attaches them to that version's GitHub Release:
 
+The same workflow can be run manually on `master` to verify both packages without publishing a release.
+
 | Platform | Assets |
 | --- | --- |
 | Windows | `Plane-Pin-Setup-vX.Y.Z.exe` (committed to `builds/`) |
