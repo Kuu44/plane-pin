@@ -10,7 +10,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ### Changed
 
-- Upgraded to Electron 42 and moved Plane and GitHub tokens to its asynchronous operating-system credential storage, including automatic migration of existing encrypted tokens.
+- Upgraded to Electron 42 and moved Linux Plane and GitHub tokens to its asynchronous operating-system credential storage, including automatic migration of existing encrypted tokens.
 
 ### Fixed
 

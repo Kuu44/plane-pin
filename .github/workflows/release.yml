@@ -37,6 +37,25 @@ jobs:
           }
       - run: npm ci
       - run: npm test
+      - name: Verify Linux keyring persistence across restarts
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes dbus-x11 gnome-keyring libglib2.0-bin xvfb
+          dbus-run-session -- bash -euo pipefail -c '
+            printf "plane-pin-ci-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            gdbus introspect --session \
+              --dest org.freedesktop.secrets \
+              --object-path /org/freedesktop/secrets >/dev/null
+            export PLANE_PIN_SAFE_STORAGE_FILE="$RUNNER_TEMP/plane-pin-safe-storage.bin"
+            export PLANE_PIN_SAFE_STORAGE_USER_DATA="$RUNNER_TEMP/plane-pin-safe-storage-user-data"
+            export PLANE_PIN_SAFE_STORAGE_PHASE=legacy-save
+            xvfb-run --auto-servernum ./node_modules/.bin/electron scripts/safe-storage-smoke --no-sandbox
+            export PLANE_PIN_SAFE_STORAGE_PHASE=migrate
+            xvfb-run --auto-servernum ./node_modules/.bin/electron scripts/safe-storage-smoke --no-sandbox
+            export PLANE_PIN_SAFE_STORAGE_PHASE=load
+            xvfb-run --auto-servernum ./node_modules/.bin/electron scripts/safe-storage-smoke --no-sandbox
+          '
 
   package:
     name: Package ${{ matrix.platform }}

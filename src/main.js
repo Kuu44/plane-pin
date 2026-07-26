@@ -145,6 +145,23 @@ function writeStoredSettings(settings, backupCurrent = true) {
   fs.renameSync(temporary, target);
 }
 
+async function credentialEncryptionAvailable() {
+  return process.platform === "linux"
+    ? safeStorage.isAsyncEncryptionAvailable()
+    : safeStorage.isEncryptionAvailable();
+}
+
+async function encryptCredential(value) {
+  return process.platform === "linux"
+    ? safeStorage.encryptStringAsync(value)
+    : safeStorage.encryptString(value);
+}
+
+async function decryptCredential(value) {
+  if (process.platform === "linux") return safeStorage.decryptStringAsync(value);
+  return { result: safeStorage.decryptString(value), shouldReEncrypt: false };
+}
+
 function loadSettings() {
   return {
     ...normalizeStoredSettings(readStoredSettings()),
@@ -159,14 +176,14 @@ async function restoreCredentials() {
   const records = readStoredSettingsCandidates();
   const reencrypted = new Map();
   const loaded = await loadStoredSettings(records.map((record) => record.value), async (encryptedToken) => {
-    if (!await safeStorage.isAsyncEncryptionAvailable()) {
+    if (!await credentialEncryptionAvailable()) {
       throw new Error("Secure credential storage is temporarily unavailable.");
     }
-    const decrypted = await safeStorage.decryptStringAsync(Buffer.from(encryptedToken, "base64"));
+    const decrypted = await decryptCredential(Buffer.from(encryptedToken, "base64"));
     if (decrypted.shouldReEncrypt) {
       reencrypted.set(
         encryptedToken,
-        (await safeStorage.encryptStringAsync(decrypted.result)).toString("base64")
+        (await encryptCredential(decrypted.result)).toString("base64")
       );
     }
     return decrypted.result;
@@ -262,17 +279,17 @@ async function saveSettings(input) {
   stored.apiToken = currentStored.apiToken;
   stored.updateToken = currentStored.updateToken;
   if ((suppliedToken || (!stored.apiToken && sessionToken))
-    && !await safeStorage.isAsyncEncryptionAvailable()) {
+    && !await credentialEncryptionAvailable()) {
     throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the API token safely.");
   }
   if (suppliedToken || (!stored.apiToken && sessionToken)) {
-    stored.apiToken = (await safeStorage.encryptStringAsync(suppliedToken || sessionToken)).toString("base64");
+    stored.apiToken = (await encryptCredential(suppliedToken || sessionToken)).toString("base64");
   }
   if (suppliedUpdateToken || (!stored.updateToken && sessionUpdateToken)) {
-    if (!await safeStorage.isAsyncEncryptionAvailable()) {
+    if (!await credentialEncryptionAvailable()) {
       throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the update token safely.");
     }
-    stored.updateToken = (await safeStorage.encryptStringAsync(suppliedUpdateToken || sessionUpdateToken)).toString("base64");
+    stored.updateToken = (await encryptCredential(suppliedUpdateToken || sessionUpdateToken)).toString("base64");
   }
   stored.startAtLogin = setLoginStartup(startAtLogin);
   writeStoredSettings(stored);
