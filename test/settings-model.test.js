@@ -4,8 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { loadStoredSettings, normalizeStoredSettings } = require("../src/settings-model");
 
-test("keeps ordinary settings when a saved token cannot be decrypted", () => {
-  const loaded = loadStoredSettings({
+test("keeps ordinary settings when a saved token cannot be decrypted", async () => {
+  const loaded = await loadStoredSettings({
     baseUrl: "https://plane.example.com",
     workspaceSlug: "engineering",
     memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
@@ -96,8 +96,8 @@ test("junk values fall back to the safe default rather than a truthy surprise", 
   assert.equal(junk.startAtLogin, false);
 });
 
-test("recovers a decryptable token from backup without replacing newer preferences", () => {
-  const loaded = loadStoredSettings([
+test("recovers a decryptable token from backup without replacing newer preferences", async () => {
+  const loaded = await loadStoredSettings([
     { workspaceSlug: "new-workspace", theme: "dark", apiToken: "broken-primary" },
     { workspaceSlug: "old-workspace", apiToken: "valid-backup" }
   ], (encrypted) => {
@@ -113,8 +113,8 @@ test("recovers a decryptable token from backup without replacing newer preferenc
   assert.equal(loaded.tokenError, false);
 });
 
-test("recovers the private update token independently from the Plane token", () => {
-  const loaded = loadStoredSettings([
+test("recovers the private update token independently from the Plane token", async () => {
+  const loaded = await loadStoredSettings([
     { apiToken: "plane-primary", updateToken: "broken-update" },
     { updateToken: "valid-update" }
   ], (encrypted) => {
@@ -126,4 +126,14 @@ test("recovers the private update token independently from the Plane token", () 
   assert.equal(loaded.updateToken, "valid-update-decrypted");
   assert.equal(loaded.updateTokenSourceIndex, 1);
   assert.equal(loaded.updateTokenError, false);
+});
+
+test("keeps a temporarily unavailable Linux keyring credential instead of asking for it again", async () => {
+  const loaded = await loadStoredSettings({ apiToken: "still-encrypted" }, async () => {
+    throw new Error("safeStorage.asyncDecryptString is temporarily unavailable. Please try again.");
+  });
+
+  assert.equal(loaded.encryptedTokenPresent, true);
+  assert.equal(loaded.tokenUnavailable, true);
+  assert.equal(loaded.tokenError, false);
 });

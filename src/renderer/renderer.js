@@ -660,8 +660,10 @@ function hydrateSettingsForm() {
   elements.settingsTokenVisibility.textContent = "Show";
   elements.settingsTokenVisibility.setAttribute("aria-pressed", "false");
   elements.settingsToken.placeholder = settings.tokenSet ? "Saved securely — enter only to replace" : "Enter a Plane API token";
-  elements.settingsTokenNote.textContent = settings.tokenError
-    ? "Your operating system could not unlock the saved token. Enter it again, then save."
+  elements.settingsTokenNote.textContent = settings.tokenUnavailable
+    ? "The saved token is still encrypted on disk. Unlock your system keyring, then refresh or restart Plane Pin."
+    : settings.tokenError
+      ? "Your operating system could not unlock the saved token. Enter it again, then save."
     : "Leave blank to keep the encrypted token already saved.";
   elements.settingsProfileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
   elements.settingsProfileField.hidden = Boolean(settings.memberId);
@@ -679,8 +681,10 @@ function hydrateSettingsForm() {
     : settings.updateCredentialAvailable
       ? "Optional — GH_TOKEN detected"
       : "github_pat_…";
-  elements.settingsUpdateTokenNote.textContent = settings.updateTokenError
-    ? "Your operating system could not unlock the saved update token. Enter it again, then save."
+  elements.settingsUpdateTokenNote.textContent = settings.updateTokenUnavailable
+    ? "The saved update token is still encrypted on disk. Unlock your system keyring, then restart Plane Pin."
+    : settings.updateTokenError
+      ? "Your operating system could not unlock the saved update token. Enter it again, then save."
     : settings.updateTokenSet
       ? "Leave blank to keep the update token already saved."
       : settings.updateCredentialAvailable
@@ -1159,6 +1163,14 @@ async function init() {
   if (!settings.setupComplete) {
     elements.status.textContent = "Setup not finished";
     requestAnimationFrame(openOnboarding);
+    return;
+  }
+  if (settings.tokenUnavailable) {
+    elements.status.textContent = "System keyring locked";
+    elements.count.textContent = "Your saved token is still encrypted on disk.";
+    elements.empty.querySelector("h2").textContent = "Unlock your system keyring.";
+    elements.empty.querySelector("p").textContent = "Then press Refresh. You do not need to enter the token again.";
+    $("#start-setup").textContent = "Open settings";
     return;
   }
   if (settings.tokenSet) {
