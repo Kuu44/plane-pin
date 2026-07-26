@@ -5,15 +5,13 @@ function createUpdateManager({
   currentVersion,
   supported,
   unsupportedMessage,
-  hasCredential,
-  configureCredential,
   beforeInstall = () => {},
   notify = () => {},
   defer = queueMicrotask
 }) {
   let installAfterDownload = false;
   let state = {
-    status: supported ? (hasCredential() ? "idle" : "auth-required") : "unavailable",
+    status: supported ? "idle" : "unavailable",
     currentVersion,
     availableVersion: "",
     progress: 0,
@@ -87,12 +85,10 @@ function createUpdateManager({
 
   async function check() {
     if (!supported) return publish({ status: "unavailable", message: unsupportedMessage });
-    if (!hasCredential()) return publish({ status: "auth-required", error: "", message: "" });
     if (state.status === "checking" || state.status === "downloading" || state.status === "installing") {
       return { ...state };
     }
     try {
-      configureCredential();
       publish({ status: "checking", progress: 0, error: "", message: "" });
       await updater.checkForUpdates();
     } catch (error) {

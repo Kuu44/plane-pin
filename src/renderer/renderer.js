@@ -1,7 +1,9 @@
 "use strict";
 
 const $ = (selector) => document.querySelector(selector);
+const { layoutTasks, orderItems: orderedItems } = window.planePinTaskLayout;
 const elements = {
+  updateToolbar: $("#update-toolbar"),
   pinToggle: $("#pin-toggle"),
   pinLabel: $("#pin-label"),
   themeToggle: $("#theme-toggle"),
@@ -64,14 +66,16 @@ const elements = {
   settingsStateOptions: $("#settings-state-options"),
   settingsStateSelectAll: $("#settings-state-select-all"),
   settingsStateSelectNone: $("#settings-state-select-none"),
+  settingsChangeOnCheck: $("#settings-change-on-check"),
+  settingsCheckOptions: $("#settings-check-options"),
+  settingsCheckTargetState: $("#settings-check-target-state"),
+  settingsCompletionSound: $("#settings-completion-sound"),
   settingsGroupProject: $("#settings-group-project"),
+  settingsGroupMember: $("#settings-group-member"),
   settingsOnTop: $("#settings-on-top"),
   settingsCompactCards: $("#settings-compact-cards"),
   settingsPriorityDot: $("#settings-priority-dot"),
   settingsPriorityGradient: $("#settings-priority-gradient"),
-  settingsUpdateToken: $("#settings-update-token"),
-  settingsUpdateTokenVisibility: $("#settings-update-token-visibility"),
-  settingsUpdateTokenNote: $("#settings-update-token-note"),
   settingsStartAtLogin: $("#settings-start-at-login"),
   settingsStartAtLoginNote: $("#settings-start-at-login-note"),
   updateStatusTitle: $("#update-status-title"),
@@ -126,6 +130,9 @@ let draftStateNames;
 let settingsDraftAssigneeIds;
 let settingsDraftProjectIds;
 let settingsDraftStateNames;
+let settingsDraftMemberOrder;
+let settingsDraftProjectOrder;
+let settingsDraftStateOrder;
 let settingsScrollTop = 0;
 const windowDrag = window.planePinDrag.createDragTracker();
 let suppressNextClick = false;
@@ -285,6 +292,54 @@ function setEverySelection(container, checked, onChange) {
   onChange();
 }
 
+function addReorderHandle(row, value, orderedValues, onReorder) {
+  const handle = document.createElement("span");
+  handle.className = "drag-handle";
+  handle.draggable = true;
+  handle.tabIndex = 0;
+  handle.setAttribute("role", "button");
+  handle.setAttribute("aria-label", "Drag to reorder");
+  handle.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
+  handle.innerHTML = "<i></i><i></i><i></i>";
+
+  const move = (direction) => {
+    const from = orderedValues.indexOf(value);
+    const to = Math.max(0, Math.min(orderedValues.length - 1, from + direction));
+    if (from === to) return;
+    const next = [...orderedValues];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    onReorder(next);
+  };
+  handle.addEventListener("keydown", (event) => {
+    if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    move(event.key === "ArrowUp" ? -1 : 1);
+  });
+  handle.addEventListener("click", (event) => event.preventDefault());
+  handle.addEventListener("dragstart", (event) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", value);
+    row.classList.add("is-dragging");
+  });
+  handle.addEventListener("dragend", () => row.classList.remove("is-dragging"));
+  row.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  row.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const dragged = event.dataTransfer.getData("text/plain");
+    const from = orderedValues.indexOf(dragged);
+    const to = orderedValues.indexOf(value);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...orderedValues];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    onReorder(next);
+  });
+  row.append(handle);
+}
+
 function availableStates(source, projectIds) {
   if (!source) return [];
   const selectedKeys = Array.isArray(projectIds)
@@ -346,10 +401,12 @@ function stateGlyph(group, color) {
   return svg;
 }
 
-function renderStateRows(container, states, selectedNames, onChange) {
+function renderStateRows(container, states, selectedNames, onChange, reorder = null) {
+  const visibleStates = reorder ? orderedItems(states, reorder.order, (state) => state.name) : states;
   const resolvedNames = selectedOrAll(selectedNames, states.map((state) => state.name));
   const selected = new Set(resolvedNames.map((name) => name.toLocaleLowerCase()));
-  const rows = states.map((state) => {
+  const orderedValues = visibleStates.map((state) => state.name);
+  const rows = visibleStates.map((state) => {
     const label = document.createElement("label");
     label.className = "selection-row state-row";
     const input = document.createElement("input");
@@ -364,14 +421,17 @@ function renderStateRows(container, states, selectedNames, onChange) {
     group.textContent = stateGroupLabels[state.group] || "Workflow state";
     copy.append(name, group);
     label.append(input, stateGlyph(state.group, state.color), copy);
+    if (reorder) addReorderHandle(label, state.name, orderedValues, reorder.onChange);
     return label;
   });
   container.replaceChildren(...rows);
 }
 
-function renderSelectionRows(container, items, selectedIds, secondaryText, onChange) {
+function renderSelectionRows(container, items, selectedIds, secondaryText, onChange, reorder = null) {
+  const visibleItems = reorder ? orderedItems(items, reorder.order, (item) => item.id) : items;
   const selected = new Set(selectedOrAll(selectedIds, items.map((item) => item.id)));
-  const rows = items.map((item) => {
+  const orderedValues = visibleItems.map((item) => item.id);
+  const rows = visibleItems.map((item) => {
     const label = document.createElement("label");
     label.className = "selection-row";
     const input = document.createElement("input");
@@ -386,6 +446,7 @@ function renderSelectionRows(container, items, selectedIds, secondaryText, onCha
     secondary.textContent = secondaryText(item);
     copy.append(name, secondary);
     label.append(input, copy);
+    if (reorder) addReorderHandle(label, item.id, orderedValues, reorder.onChange);
     return label;
   });
   container.replaceChildren(...rows);
@@ -544,6 +605,9 @@ async function advanceSetup() {
       assigneeIds: draftAssigneeIds,
       projectIds: draftProjectIds,
       stateNames: draftStateNames,
+      memberOrder: discovery.members.map((item) => item.id),
+      projectOrder: discovery.projects.map((item) => item.id),
+      stateOrder: availableStates(discovery, draftProjectIds).map((item) => item.name),
       groupByProject: elements.groupByProject.checked,
       alwaysOnTop: elements.preferOnTop.checked,
       refreshMinutes: 5,
@@ -565,6 +629,7 @@ async function advanceSetup() {
 function renderSettingsMembers() {
   const members = settingsDiscovery?.members || [];
   settingsDraftAssigneeIds = selectedOrAll(settingsDraftAssigneeIds, members.map((member) => member.id));
+  settingsDraftMemberOrder = orderedItems(members, settingsDraftMemberOrder, (member) => member.id).map((member) => member.id);
   const update = () => {
     settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
     syncSelectionActions(elements.settingsMemberOptions, elements.settingsMemberSelectAll, elements.settingsMemberSelectNone);
@@ -574,7 +639,14 @@ function renderSettingsMembers() {
     members,
     settingsDraftAssigneeIds,
     (member) => member.email || "Workspace member",
-    update
+    update,
+    {
+      order: settingsDraftMemberOrder,
+      onChange: (next) => {
+        settingsDraftMemberOrder = next;
+        renderSettingsMembers();
+      }
+    }
   );
   update();
 }
@@ -582,6 +654,7 @@ function renderSettingsMembers() {
 function renderSettingsProjects() {
   const projects = settingsDiscovery?.projects || [];
   settingsDraftProjectIds = resolvedProjectIds(projects, settingsDraftProjectIds);
+  settingsDraftProjectOrder = orderedItems(projects, settingsDraftProjectOrder, (project) => project.id).map((project) => project.id);
   const update = () => {
     settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
     syncSelectionActions(elements.settingsProjectOptions, elements.settingsProjectSelectAll, elements.settingsProjectSelectNone);
@@ -592,7 +665,14 @@ function renderSettingsProjects() {
     projects,
     settingsDraftProjectIds,
     (project) => project.identifier || "Plane project",
-    update
+    update,
+    {
+      order: settingsDraftProjectOrder,
+      onChange: (next) => {
+        settingsDraftProjectOrder = next;
+        renderSettingsProjects();
+      }
+    }
   );
   syncSelectionActions(elements.settingsProjectOptions, elements.settingsProjectSelectAll, elements.settingsProjectSelectNone);
 }
@@ -600,12 +680,34 @@ function renderSettingsProjects() {
 function renderSettingsStates() {
   const states = settingsDiscovery ? availableStates(settingsDiscovery, settingsDraftProjectIds) : [];
   settingsDraftStateNames = selectedOrAll(settingsDraftStateNames, states.map((state) => state.name));
+  settingsDraftStateOrder = orderedItems(states, settingsDraftStateOrder, (state) => state.name).map((state) => state.name);
   const update = () => {
     settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
     syncSelectionActions(elements.settingsStateOptions, elements.settingsStateSelectAll, elements.settingsStateSelectNone);
   };
-  renderStateRows(elements.settingsStateOptions, states, settingsDraftStateNames, update);
+  renderStateRows(elements.settingsStateOptions, states, settingsDraftStateNames, update, {
+    order: settingsDraftStateOrder,
+    onChange: (next) => {
+      settingsDraftStateOrder = next;
+      renderSettingsStates();
+    }
+  });
   syncSelectionActions(elements.settingsStateOptions, elements.settingsStateSelectAll, elements.settingsStateSelectNone);
+  renderSettingsCompletionOptions(states);
+}
+
+function renderSettingsCompletionOptions(states) {
+  const current = elements.settingsCheckTargetState.value || settings.checkTargetStateName;
+  const ordered = orderedItems(states, settingsDraftStateOrder, (state) => state.name);
+  elements.settingsCheckTargetState.replaceChildren(...ordered.map((state) => {
+    const option = document.createElement("option");
+    option.value = state.name;
+    option.textContent = `${state.name} · ${stateGroupLabels[state.group] || "Workflow state"}`;
+    return option;
+  }));
+  const fallback = ordered.find((state) => state.group === "completed")?.name || ordered[0]?.name || "";
+  elements.settingsCheckTargetState.value = ordered.some((state) => state.name === current) ? current : fallback;
+  elements.settingsCheckOptions.hidden = !elements.settingsChangeOnCheck.checked;
 }
 
 function applySettingsDiscovery(result) {
@@ -652,6 +754,9 @@ function hydrateSettingsForm() {
   settingsDraftAssigneeIds = [...(settings.assigneeIds || [])];
   settingsDraftProjectIds = Array.isArray(settings.projectIds) ? [...settings.projectIds] : null;
   settingsDraftStateNames = Array.isArray(settings.stateNames) ? [...settings.stateNames] : null;
+  settingsDraftMemberOrder = [...(settings.memberOrder || [])];
+  settingsDraftProjectOrder = [...(settings.projectOrder || [])];
+  settingsDraftStateOrder = [...(settings.stateOrder || [])];
   elements.settingsPlaneUrl.value = settings.baseUrl && settings.workspaceSlug
     ? `${settings.baseUrl}/${settings.workspaceSlug}/`
     : "";
@@ -668,28 +773,15 @@ function hydrateSettingsForm() {
   elements.settingsProfileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
   elements.settingsProfileField.hidden = Boolean(settings.memberId);
   elements.settingsGroupProject.checked = settings.groupByProject;
+  elements.settingsGroupMember.checked = settings.groupByMember;
+  elements.settingsChangeOnCheck.checked = settings.changeOnCheck;
+  elements.settingsCheckOptions.hidden = !settings.changeOnCheck;
+  elements.settingsCheckTargetState.replaceChildren();
+  elements.settingsCompletionSound.checked = settings.completionSound;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
   elements.settingsCompactCards.checked = settings.compactCards;
   elements.settingsPriorityDot.checked = settings.priorityStyle !== "gradient";
   elements.settingsPriorityGradient.checked = settings.priorityStyle === "gradient";
-  elements.settingsUpdateToken.value = "";
-  elements.settingsUpdateToken.type = "password";
-  elements.settingsUpdateTokenVisibility.textContent = "Show";
-  elements.settingsUpdateTokenVisibility.setAttribute("aria-pressed", "false");
-  elements.settingsUpdateToken.placeholder = settings.updateTokenSet
-    ? "Saved securely — enter only to replace"
-    : settings.updateCredentialAvailable
-      ? "Optional — GH_TOKEN detected"
-      : "github_pat_…";
-  elements.settingsUpdateTokenNote.textContent = settings.updateTokenUnavailable
-    ? "The saved update token is still encrypted on disk. Unlock your system keyring, then restart Plane Pin."
-    : settings.updateTokenError
-      ? "Your operating system could not unlock the saved update token. Enter it again, then save."
-    : settings.updateTokenSet
-      ? "Leave blank to keep the update token already saved."
-      : settings.updateCredentialAvailable
-        ? "Using GH_TOKEN from your environment. Enter a token only to store it in Plane Pin."
-        : "Required while the release repository is private. Use a fine-grained token with read-only Contents access.";
   elements.settingsStartAtLogin.checked = settings.startAtLogin;
   elements.settingsStartAtLoginNote.textContent = settings.loginStartupStatus === "requires-approval"
     ? "Allow Plane Pin in System Settings → General → Login Items."
@@ -769,11 +861,17 @@ async function saveSettingsForm() {
       assigneeIds: settingsDraftAssigneeIds,
       projectIds: settingsDraftProjectIds,
       stateNames: settingsDraftStateNames,
+      memberOrder: settingsDraftMemberOrder,
+      projectOrder: settingsDraftProjectOrder,
+      stateOrder: settingsDraftStateOrder,
       groupByProject: elements.settingsGroupProject.checked,
+      groupByMember: elements.settingsGroupMember.checked,
+      changeOnCheck: elements.settingsChangeOnCheck.checked,
+      checkTargetStateName: elements.settingsCheckTargetState.value,
+      completionSound: elements.settingsCompletionSound.checked,
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
       priorityStyle: elements.settingsPriorityGradient.checked ? "gradient" : "dot",
-      updateToken: elements.settingsUpdateToken.value,
       startAtLogin: elements.settingsStartAtLogin.checked,
       closeToTray: elements.settingsCloseTray.checked,
       minimizeToTray: elements.settingsMinimizeTray.checked,
@@ -812,8 +910,41 @@ function estimateChip(task) {
   return chip;
 }
 
+function celebrateTask(item) {
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const burst = document.createElement("span");
+    burst.className = "confetti-burst";
+    for (let index = 0; index < 10; index += 1) {
+      const piece = document.createElement("i");
+      piece.style.setProperty("--angle", `${index * 36}deg`);
+      piece.style.setProperty("--hue", `${index * 37}deg`);
+      burst.append(piece);
+    }
+    item.append(burst);
+    setTimeout(() => burst.remove(), 900);
+  }
+  if (!settings.completionSound) return;
+  const Audio = window.AudioContext || window.webkitAudioContext;
+  if (!Audio) return;
+  const context = new Audio();
+  const now = context.currentTime;
+  for (const [frequency, delay] of [[520, 0], [760, 0.055], [980, 0.11]]) {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = frequency;
+    oscillator.type = "triangle";
+    gain.gain.setValueAtTime(0.08, now + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.12);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(now + delay);
+    oscillator.stop(now + delay + 0.13);
+  }
+  setTimeout(() => context.close(), 500);
+}
+
 function taskRow(task) {
   const item = document.createElement("li");
+  item.className = "task-item";
   const button = document.createElement("button");
   button.className = `task-card priority-${task.priority}`;
   button.type = "button";
@@ -855,14 +986,40 @@ function taskRow(task) {
   openIcon.setAttribute("aria-hidden", "true");
   button.append(priorityDot, name, meta, openIcon);
   item.append(button);
+  if (settings.changeOnCheck) {
+    const complete = document.createElement("button");
+    complete.className = "complete-task";
+    complete.type = "button";
+    complete.setAttribute("aria-label", `Move ${task.identifier} to ${settings.checkTargetStateName}`);
+    complete.dataset.tooltip = `Move to ${settings.checkTargetStateName}`;
+    complete.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.2 8.2 3 3 6.6-6.5"></path></svg>';
+    complete.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      complete.disabled = true;
+      item.classList.add("is-checking");
+      try {
+        await window.planePin.changeTaskState(task.id, task.projectId);
+        item.classList.remove("is-checking");
+        item.classList.add("is-checked");
+        celebrateTask(item);
+        setTimeout(refreshTasks, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 700);
+      } catch (error) {
+        item.classList.remove("is-checking");
+        complete.disabled = false;
+        elements.status.textContent = "Couldn’t change task";
+        elements.count.textContent = error.message;
+      }
+    });
+    item.append(complete);
+  }
   return item;
 }
 
-function projectHeading(projectName, count) {
+function groupHeading(type, nameText, count, nested = false) {
   const heading = document.createElement("li");
-  heading.className = "project-heading";
+  heading.className = `${type}-heading${nested ? " is-nested" : ""}`;
   const name = document.createElement("span");
-  name.textContent = projectName;
+  name.textContent = nameText;
   const total = document.createElement("span");
   total.textContent = String(count);
   heading.append(name, total);
@@ -877,19 +1034,10 @@ function filterTitle() {
 }
 
 function renderTasks(tasks) {
-  const rows = [];
-  if (settings.groupByProject) {
-    const projects = new Map();
-    for (const task of tasks) {
-      if (!projects.has(task.projectName)) projects.set(task.projectName, []);
-      projects.get(task.projectName).push(task);
-    }
-    for (const [projectName, projectTasks] of projects) {
-      rows.push(projectHeading(projectName, projectTasks.length), ...projectTasks.map(taskRow));
-    }
-  } else {
-    rows.push(...tasks.map(taskRow));
-  }
+  const rows = layoutTasks(tasks, settings).map((row) => {
+    if (row.type === "task") return taskRow(row.task);
+    return groupHeading(row.type, row.name, row.count, row.nested);
+  });
   elements.taskList.replaceChildren(...rows);
   elements.taskList.hidden = tasks.length === 0;
   elements.empty.hidden = tasks.length > 0;
@@ -966,7 +1114,6 @@ function renderUpdateState(next = {}) {
   const current = updateState.currentVersion || settings?.appVersion || "";
   const view = {
     idle: [`Plane Pin v${current}`, "Checks automatically when Plane Pin starts.", "Check for updates", false],
-    "auth-required": ["Release access needed", "Save a read-only GitHub token below to check this private release feed.", "Check for updates", true],
     unavailable: ["Automatic updates unavailable", updateState.message || "This build cannot install updates automatically.", "Unavailable", true],
     checking: ["Checking for updates…", "Looking at the latest Plane Pin release.", "Checking…", true],
     "up-to-date": ["Plane Pin is up to date", `You’re running v${current}.`, "Check again", false],
@@ -979,6 +1126,16 @@ function renderUpdateState(next = {}) {
   [elements.updateStatusTitle.textContent, elements.updateStatusMessage.textContent, elements.updateAction.textContent, elements.updateAction.disabled] = view;
   elements.updateProgress.hidden = updateState.status !== "downloading";
   elements.updateProgress.value = updateState.progress || 0;
+  const showToolbarUpdate = ["available", "downloading", "ready", "installing"].includes(updateState.status);
+  elements.updateToolbar.hidden = !showToolbarUpdate;
+  elements.updateToolbar.disabled = ["downloading", "installing"].includes(updateState.status);
+  elements.updateToolbar.classList.toggle("is-glowing", ["available", "ready"].includes(updateState.status));
+  elements.updateToolbar.dataset.tooltip = updateState.status === "ready"
+    ? `Restart and install ${version}`
+    : updateState.status === "downloading"
+      ? `Downloading ${version} · ${Math.round(updateState.progress || 0)}%`
+      : `Install ${version}`;
+  elements.updateToolbar.setAttribute("aria-label", elements.updateToolbar.dataset.tooltip);
 }
 
 async function refreshUpdateState() {
@@ -1040,17 +1197,20 @@ elements.settingsBody.addEventListener("scroll", () => {
 });
 elements.settingsTokenVisibility.addEventListener("click", () =>
   togglePassword(elements.settingsToken, elements.settingsTokenVisibility));
-elements.settingsUpdateTokenVisibility.addEventListener("click", () =>
-  togglePassword(elements.settingsUpdateToken, elements.settingsUpdateTokenVisibility));
-elements.updateAction.addEventListener("click", async () => {
+elements.settingsChangeOnCheck.addEventListener("change", () => {
+  elements.settingsCheckOptions.hidden = !elements.settingsChangeOnCheck.checked;
+});
+async function runUpdateAction(forceInstall = false) {
   try {
-    renderUpdateState(updateState.status === "available" || updateState.status === "ready"
+    renderUpdateState(forceInstall || updateState.status === "available" || updateState.status === "ready"
       ? await window.planePin.installUpdate()
       : await window.planePin.checkForUpdates());
   } catch (error) {
     renderUpdateState({ status: "error", error: error.message });
   }
-});
+}
+elements.updateAction.addEventListener("click", () => runUpdateAction());
+elements.updateToolbar.addEventListener("click", () => runUpdateAction(true));
 elements.settingsTest.addEventListener("click", async () => {
   try {
     await testSettingsConnection();

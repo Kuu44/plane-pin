@@ -32,7 +32,9 @@ const tasks = [
   priority,
   estimate: ["M", "S", "", "XL", "L", "S"][index],
   projectName,
+  projectId: projectName === "Marketing" ? "project-marketing" : "project-engineering",
   projectIdentifier: identifier.split("-")[0],
+  assignees: [{ id: "94cf0210-9909-4f77-b24e-14b2988156e5", name: "Kuu" }],
   targetDate: index === 0 ? "2026-08-04" : null,
   url: "https://plane.example.com/engineering/browse/" + identifier
 }));
@@ -42,7 +44,7 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
   await page.addInitScript(
     ({ tasks, compactCards, theme, priorityStyle }) => {
       const settings = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         baseUrl: "https://plane.example.com",
         workspaceSlug: "engineering",
         memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
@@ -50,7 +52,14 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         assigneeIds: ["94cf0210-9909-4f77-b24e-14b2988156e5"],
         projectIds: null,
         stateNames: null,
+        memberOrder: ["94cf0210-9909-4f77-b24e-14b2988156e5"],
+        projectOrder: ["project-engineering", "project-marketing"],
+        stateOrder: ["In Progress", "In Review", "Todo", "Backlog"],
         groupByProject: true,
+        groupByMember: false,
+        changeOnCheck: true,
+        checkTargetStateName: "Done",
+        completionSound: true,
         alwaysOnTop: true,
         refreshMinutes: 5,
         theme,
@@ -62,9 +71,6 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         setupComplete: true,
         tokenSet: true,
         tokenError: false,
-        updateTokenSet: true,
-        updateCredentialAvailable: true,
-        updateTokenError: false,
         loginStartupStatus: "disabled",
         appVersion: "0.11.0",
         platform: "win32",
@@ -73,7 +79,33 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
       window.planePin = {
         getSettings: async () => ({ ...settings }),
         saveSettings: async () => ({ persistedToken: true }),
-        discoverWorkspace: async () => ({ projects: [], members: [], member: null }),
+        discoverWorkspace: async () => ({
+          member: { id: "94cf0210-9909-4f77-b24e-14b2988156e5", name: "Kuu" },
+          members: [
+            { id: "94cf0210-9909-4f77-b24e-14b2988156e5", name: "Kuu", email: "kuu@example.com" },
+            { id: "84cf0210-9909-4f77-b24e-14b2988156e5", name: "Bea", email: "bea@example.com" }
+          ],
+          projects: [
+            {
+              id: "10918ea1-52f7-48bd-abe3-d3efe76ff7dd",
+              identifier: "ENG",
+              name: "Engineering",
+              states: [
+                { id: "state-progress", name: "In Progress", group: "started", color: "#f59e0b" },
+                { id: "state-done", name: "Done", group: "completed", color: "#46a758" }
+              ]
+            },
+            {
+              id: "00918ea1-52f7-48bd-abe3-d3efe76ff7dd",
+              identifier: "MKTG",
+              name: "Marketing",
+              states: [
+                { id: "state-todo", name: "Todo", group: "unstarted", color: "#60646c" },
+                { id: "state-done", name: "Done", group: "completed", color: "#46a758" }
+              ]
+            }
+          ]
+        }),
         setAlwaysOnTop: async (value) => value,
         setPreference: async (key, value) => value,
         minimizeWindow: async () => {},
@@ -84,6 +116,7 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         moveWindowBy: async () => true,
         endWindowDrag: async () => true,
         openTask: async () => {},
+        changeTaskState: async () => ({ stateName: "Done", stateGroup: "completed" }),
         listTasks: async () => tasks,
         getUpdateState: async () => ({ status: "up-to-date", currentVersion: "0.11.0" }),
         checkForUpdates: async () => ({ status: "up-to-date", currentVersion: "0.11.0" }),
@@ -99,7 +132,9 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
   return page;
 }
 
-const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM
+  ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM }
+  : {});
 const shots = [];
 
 for (const theme of ["light", "dark"]) {
@@ -108,6 +143,12 @@ for (const theme of ["light", "dark"]) {
     const name = `${theme}-${compactCards ? "compact" : "comfortable"}.png`;
     await page.screenshot({ path: path.join(outputDir, name) });
     shots.push(name);
+
+    if (theme === "light" && !compactCards) {
+      await page.hover(".task-item");
+      await page.screenshot({ path: path.join(outputDir, "light-check-hover.png") });
+      shots.push("light-check-hover.png");
+    }
 
     if (compactCards) {
       await page.click("#compact-toggle");
@@ -124,6 +165,19 @@ const settingsPage = await open(browser, { compactCards: true, theme: "light" })
 await settingsPage.setViewportSize({ width: 560, height: 760 });
 await settingsPage.click("#settings-open");
 await settingsPage.waitForTimeout(300);
+await settingsPage.evaluate(() => {
+  document.querySelector("#settings-member-options").scrollIntoView({ block: "start" });
+});
+await settingsPage.waitForTimeout(200);
+await settingsPage.screenshot({ path: path.join(outputDir, "settings-task-order.png") });
+shots.push("settings-task-order.png");
+await settingsPage.check("#settings-change-on-check");
+await settingsPage.evaluate(() => {
+  document.querySelector(".completion-block").scrollIntoView({ block: "center" });
+});
+await settingsPage.waitForTimeout(200);
+await settingsPage.screenshot({ path: path.join(outputDir, "settings-completion.png") });
+shots.push("settings-completion.png");
 await settingsPage.evaluate(() => {
   document.querySelector("#settings-close-tray").scrollIntoView({ block: "center" });
 });

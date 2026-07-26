@@ -143,6 +143,18 @@ function taskAssigneeIds(task) {
     .filter(Boolean);
 }
 
+function taskAssignees(task) {
+  const assignees = Array.isArray(task.assignees) ? task.assignees : task.assignee_ids;
+  return (Array.isArray(assignees) ? assignees : [])
+    .map((assignee) => {
+      if (typeof assignee !== "object" || !assignee) {
+        return { id: String(assignee), name: "Plane member" };
+      }
+      return { id: String(assignee.id || ""), name: memberName(assignee) };
+    })
+    .filter((assignee) => assignee.id);
+}
+
 function estimateLabel(estimatePoint, pointsById) {
   if (estimatePoint === null || estimatePoint === undefined) return "";
   if (typeof estimatePoint === "object") {
@@ -245,4 +257,50 @@ async function fetchAssignedTasks(config, request = fetch) {
   return projectTasks.flat();
 }
 
-module.exports = { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl };
+async function updateTaskState(config, request = fetch) {
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  const workspace = encodeURIComponent(config.workspaceSlug);
+  const projectId = String(config.projectId || "");
+  const taskId = String(config.taskId || "");
+  const stateName = String(config.stateName || "").trim();
+  if (!isUuid(projectId) || !isUuid(taskId) || !stateName) {
+    throw new Error("Plane Pin could not identify the task or target workflow state.");
+  }
+
+  const states = await fetchStates(baseUrl, workspace, projectId, config.apiToken, request);
+  const state = states.find((candidate) =>
+    String(candidate.name || "").toLocaleLowerCase() === stateName.toLocaleLowerCase());
+  if (!state?.id) {
+    throw new Error(`"${stateName}" is not available in this task's project.`);
+  }
+
+  const url = new URL(
+    `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(taskId)}/`,
+    baseUrl
+  );
+  const response = await request(url, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-API-Key": config.apiToken
+    },
+    body: JSON.stringify({ state: state.id })
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 401 || response.status === 403
+      ? "This Plane token cannot change that task."
+      : `Plane could not update the task (HTTP ${response.status}).`);
+  }
+  return { stateId: String(state.id), stateName: String(state.name), stateGroup: String(state.group || "") };
+}
+
+module.exports = {
+  buildTaskUrl,
+  discoverWorkspace,
+  fetchAssignedTasks,
+  isUuid,
+  normalizeBaseUrl,
+  taskAssignees,
+  updateTaskState
+};

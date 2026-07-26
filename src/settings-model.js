@@ -11,6 +11,7 @@ function cleanStrings(value, limit = 100) {
 
 const cleanIds = (value) => cleanStrings(value, 500);
 const cleanStateNames = (value) => cleanStrings(value, 100);
+const cleanOrder = (value) => cleanStrings(value, 500);
 
 function normalizeStoredSettings(stored = {}) {
   const legacyConnection = Boolean(stored.baseUrl && stored.workspaceSlug && stored.memberId && stored.apiToken);
@@ -26,7 +27,7 @@ function normalizeStoredSettings(stored = {}) {
       ? cleanStateNames(stored.stateNames)
       : null;
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     baseUrl: String(stored.baseUrl || ""),
     workspaceSlug: String(stored.workspaceSlug || ""),
     memberId: String(stored.memberId || ""),
@@ -36,7 +37,14 @@ function normalizeStoredSettings(stored = {}) {
       : cleanIds([stored.memberId]),
     projectIds,
     stateNames,
+    memberOrder: cleanOrder(stored.memberOrder),
+    projectOrder: cleanOrder(stored.projectOrder),
+    stateOrder: cleanOrder(stored.stateOrder),
     groupByProject: stored.groupByProject !== false,
+    groupByMember: stored.groupByMember === true,
+    changeOnCheck: stored.changeOnCheck === true,
+    checkTargetStateName: String(stored.checkTargetStateName || "").trim().slice(0, 100),
+    completionSound: stored.completionSound !== false,
     alwaysOnTop: stored.alwaysOnTop !== false,
     refreshMinutes: validRefreshMinutes.has(Number(stored.refreshMinutes)) ? Number(stored.refreshMinutes) : 5,
     theme: validThemes.has(stored.theme) ? stored.theme : "light",
@@ -51,8 +59,8 @@ function normalizeStoredSettings(stored = {}) {
 
 async function loadEncryptedSetting(candidates, key, decryptToken) {
   let value = "";
-  let encryptedValue = "";
-  let sourceIndex = -1;
+  let sourceIndex = candidates.findIndex((candidate) => Boolean(candidate[key]));
+  let encryptedValue = sourceIndex >= 0 ? candidates[sourceIndex][key] : "";
   let temporarilyUnavailable = false;
   const encryptedValuePresent = candidates.some((candidate) => Boolean(candidate[key]));
 
@@ -83,7 +91,6 @@ async function loadStoredSettings(storedCandidates, decryptToken) {
   const candidates = (Array.isArray(storedCandidates) ? storedCandidates : [storedCandidates]).filter(Boolean);
   const stored = candidates[0] || {};
   const plane = await loadEncryptedSetting(candidates, "apiToken", decryptToken);
-  const updates = await loadEncryptedSetting(candidates, "updateToken", decryptToken);
 
   return {
     settings: normalizeStoredSettings(stored),
@@ -92,15 +99,9 @@ async function loadStoredSettings(storedCandidates, decryptToken) {
     tokenUnavailable: plane.temporarilyUnavailable,
     encryptedTokenPresent: plane.encryptedValuePresent,
     encryptedToken: plane.encryptedValue,
-    tokenSourceIndex: plane.sourceIndex,
-    updateToken: updates.value,
-    updateTokenError: updates.error,
-    updateTokenUnavailable: updates.temporarilyUnavailable,
-    encryptedUpdateTokenPresent: updates.encryptedValuePresent,
-    encryptedUpdateToken: updates.encryptedValue,
-    updateTokenSourceIndex: updates.sourceIndex
+    tokenSourceIndex: plane.sourceIndex
   };
 }
 
-module.exports = { cleanIds, cleanStateNames, loadStoredSettings, normalizeStoredSettings };
+module.exports = { cleanIds, cleanOrder, cleanStateNames, loadStoredSettings, normalizeStoredSettings };
 

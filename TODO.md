@@ -22,8 +22,7 @@
 - [x] Add configurable automatic refresh and browser links for tasks.
 - [x] Add frameless compact mode, light/dark themes, Plane-like state chips, and priority gradients.
 - [x] Recover encrypted credentials from backup and legacy settings locations across upgrades.
-- [x] Accept an encrypted per-user read-only GitHub token for private release updates.
-- [ ] Choose a public binary-only update feed so installed users do not need GitHub credentials.
+- [x] Remove the private-release token and use the public GitHub release feed.
 - [x] Create the Git repository and connect its remote.
 - [x] Keep Plane Pin in the tray when the window closes or minimises, with a right-click exit.
 - [x] Move the window by pressing and holding anywhere in task-only mode.
@@ -34,3 +33,6 @@
 - [x] Show project estimates in full and compact task rows.
 - [x] Standardise connection setup on the Plane workspace Home address.
 - [x] Start quietly at login on Windows, macOS, and Linux.
+- [x] Add saved member, project, and workflow-state ordering.
+- [x] Add optional member grouping without forcing project subgroups.
+- [x] Add a configurable check-to-change-state action with accessible celebration feedback.
