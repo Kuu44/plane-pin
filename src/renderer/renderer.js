@@ -69,6 +69,15 @@ const elements = {
   settingsCompactCards: $("#settings-compact-cards"),
   settingsPriorityDot: $("#settings-priority-dot"),
   settingsPriorityGradient: $("#settings-priority-gradient"),
+  settingsUpdateToken: $("#settings-update-token"),
+  settingsUpdateTokenVisibility: $("#settings-update-token-visibility"),
+  settingsUpdateTokenNote: $("#settings-update-token-note"),
+  settingsStartAtLogin: $("#settings-start-at-login"),
+  settingsStartAtLoginNote: $("#settings-start-at-login-note"),
+  updateStatusTitle: $("#update-status-title"),
+  updateStatusMessage: $("#update-status-message"),
+  updateAction: $("#update-action"),
+  updateProgress: $("#update-progress"),
   settingsCloseTray: $("#settings-close-tray"),
   settingsMinimizeTray: $("#settings-minimize-tray"),
   settingsRefreshMinutes: $("#settings-refresh-minutes"),
@@ -123,6 +132,7 @@ let suppressNextClick = false;
 let dragFrame = 0;
 let pendingDrag = null;
 let isMac = false;
+let updateState = { status: "idle", currentVersion: "", availableVersion: "", progress: 0 };
 
 // macOS users press Command where Windows and Linux users press Control.
 const modifierLabel = () => (isMac ? "⌘" : "Ctrl");
@@ -651,7 +661,7 @@ function hydrateSettingsForm() {
   elements.settingsTokenVisibility.setAttribute("aria-pressed", "false");
   elements.settingsToken.placeholder = settings.tokenSet ? "Saved securely — enter only to replace" : "Enter a Plane API token";
   elements.settingsTokenNote.textContent = settings.tokenError
-    ? "Windows could not unlock the saved token. Enter it again, then save."
+    ? "Your operating system could not unlock the saved token. Enter it again, then save."
     : "Leave blank to keep the encrypted token already saved.";
   elements.settingsProfileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
   elements.settingsProfileField.hidden = Boolean(settings.memberId);
@@ -660,6 +670,26 @@ function hydrateSettingsForm() {
   elements.settingsCompactCards.checked = settings.compactCards;
   elements.settingsPriorityDot.checked = settings.priorityStyle !== "gradient";
   elements.settingsPriorityGradient.checked = settings.priorityStyle === "gradient";
+  elements.settingsUpdateToken.value = "";
+  elements.settingsUpdateToken.type = "password";
+  elements.settingsUpdateTokenVisibility.textContent = "Show";
+  elements.settingsUpdateTokenVisibility.setAttribute("aria-pressed", "false");
+  elements.settingsUpdateToken.placeholder = settings.updateTokenSet
+    ? "Saved securely — enter only to replace"
+    : settings.updateCredentialAvailable
+      ? "Optional — GH_TOKEN detected"
+      : "github_pat_…";
+  elements.settingsUpdateTokenNote.textContent = settings.updateTokenError
+    ? "Your operating system could not unlock the saved update token. Enter it again, then save."
+    : settings.updateTokenSet
+      ? "Leave blank to keep the update token already saved."
+      : settings.updateCredentialAvailable
+        ? "Using GH_TOKEN from your environment. Enter a token only to store it in Plane Pin."
+        : "Required while the release repository is private. Use a fine-grained token with read-only Contents access.";
+  elements.settingsStartAtLogin.checked = settings.startAtLogin;
+  elements.settingsStartAtLoginNote.textContent = settings.loginStartupStatus === "requires-approval"
+    ? "Allow Plane Pin in System Settings → General → Login Items."
+    : `Launch Plane Pin quietly in the ${settings.trayLocation || "system tray"}.`;
   elements.settingsCloseTray.checked = settings.closeToTray;
   elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.settingsRefreshMinutes.value = String(settings.refreshMinutes);
@@ -688,6 +718,7 @@ function hydrateSettingsForm() {
 
 async function openSettings() {
   hydrateSettingsForm();
+  refreshUpdateState();
   elements.settingsError.textContent = "";
   if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
   requestAnimationFrame(() => {
@@ -738,6 +769,8 @@ async function saveSettingsForm() {
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
       priorityStyle: elements.settingsPriorityGradient.checked ? "gradient" : "dot",
+      updateToken: elements.settingsUpdateToken.value,
+      startAtLogin: elements.settingsStartAtLogin.checked,
       closeToTray: elements.settingsCloseTray.checked,
       minimizeToTray: elements.settingsMinimizeTray.checked,
       refreshMinutes: Number(elements.settingsRefreshMinutes.value),
@@ -906,6 +939,7 @@ function applySettingsToShell() {
   document.body.classList.toggle("priority-gradient", settings.priorityStyle === "gradient");
   elements.preferOnTop.checked = settings.alwaysOnTop;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
+  elements.settingsStartAtLogin.checked = settings.startAtLogin;
   elements.settingsCloseTray.checked = settings.closeToTray;
   elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.listTitle.textContent = filterTitle();
@@ -920,6 +954,35 @@ function togglePassword(input, button) {
   input.type = visible ? "text" : "password";
   button.textContent = visible ? "Hide" : "Show";
   button.setAttribute("aria-pressed", String(visible));
+}
+
+function renderUpdateState(next = {}) {
+  updateState = { ...updateState, ...next };
+  const version = updateState.availableVersion ? `v${updateState.availableVersion}` : "the update";
+  const current = updateState.currentVersion || settings?.appVersion || "";
+  const view = {
+    idle: [`Plane Pin v${current}`, "Checks automatically when Plane Pin starts.", "Check for updates", false],
+    "auth-required": ["Release access needed", "Save a read-only GitHub token below to check this private release feed.", "Check for updates", true],
+    unavailable: ["Automatic updates unavailable", updateState.message || "This build cannot install updates automatically.", "Unavailable", true],
+    checking: ["Checking for updates…", "Looking at the latest Plane Pin release.", "Checking…", true],
+    "up-to-date": ["Plane Pin is up to date", `You’re running v${current}.`, "Check again", false],
+    available: [`Plane Pin ${version} is available`, "Download, install, and restart automatically.", `Update to ${version}`, false],
+    downloading: [`Downloading ${version}…`, `${Math.round(updateState.progress || 0)}% complete.`, `Downloading ${Math.round(updateState.progress || 0)}%`, true],
+    ready: ["Update ready", `Restart to finish installing ${version}.`, "Restart and update", false],
+    installing: ["Installing update…", "Plane Pin will reopen automatically.", "Restarting…", true],
+    error: ["Couldn’t check for updates", updateState.error || "Try again in a moment.", "Try again", false]
+  }[updateState.status] || ["Ready to check", "", "Check for updates", false];
+  [elements.updateStatusTitle.textContent, elements.updateStatusMessage.textContent, elements.updateAction.textContent, elements.updateAction.disabled] = view;
+  elements.updateProgress.hidden = updateState.status !== "downloading";
+  elements.updateProgress.value = updateState.progress || 0;
+}
+
+async function refreshUpdateState() {
+  try {
+    renderUpdateState(await window.planePin.getUpdateState());
+  } catch (error) {
+    renderUpdateState({ status: "error", error: error.message });
+  }
 }
 
 elements.pinToggle.addEventListener("click", togglePin);
@@ -973,6 +1036,17 @@ elements.settingsBody.addEventListener("scroll", () => {
 });
 elements.settingsTokenVisibility.addEventListener("click", () =>
   togglePassword(elements.settingsToken, elements.settingsTokenVisibility));
+elements.settingsUpdateTokenVisibility.addEventListener("click", () =>
+  togglePassword(elements.settingsUpdateToken, elements.settingsUpdateTokenVisibility));
+elements.updateAction.addEventListener("click", async () => {
+  try {
+    renderUpdateState(updateState.status === "available" || updateState.status === "ready"
+      ? await window.planePin.installUpdate()
+      : await window.planePin.checkForUpdates());
+  } catch (error) {
+    renderUpdateState({ status: "error", error: error.message });
+  }
+});
 elements.settingsTest.addEventListener("click", async () => {
   try {
     await testSettingsConnection();
@@ -1047,6 +1121,7 @@ window.planePin.onTrayCommand(async (command) => {
     elements.settingsOnTop.checked = settings.alwaysOnTop;
   }
 });
+window.planePin.onUpdateState(renderUpdateState);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && compactMode && !elements.setup.open && !elements.settingsDialog.open) {

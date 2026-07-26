@@ -58,9 +58,15 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         priorityStyle,
         closeToTray: true,
         minimizeToTray: true,
+        startAtLogin: false,
         setupComplete: true,
         tokenSet: true,
         tokenError: false,
+        updateTokenSet: true,
+        updateCredentialAvailable: true,
+        updateTokenError: false,
+        loginStartupStatus: "disabled",
+        appVersion: "0.11.0",
         platform: "win32",
         trayLocation: "notification area"
       };
@@ -79,7 +85,11 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         endWindowDrag: async () => true,
         openTask: async () => {},
         listTasks: async () => tasks,
-        onTrayCommand: () => {}
+        getUpdateState: async () => ({ status: "up-to-date", currentVersion: "0.11.0" }),
+        checkForUpdates: async () => ({ status: "up-to-date", currentVersion: "0.11.0" }),
+        installUpdate: async () => ({ status: "installing", currentVersion: "0.11.0" }),
+        onTrayCommand: () => {},
+        onUpdateState: () => {}
       };
     },
     { tasks, compactCards, theme, priorityStyle }

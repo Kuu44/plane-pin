@@ -6,6 +6,18 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-26
+
+### Added
+
+- Added a Start when I sign in preference on Windows, macOS, and Linux, with quiet launches that stay in the platform tray.
+- Added an Updates section in Settings with automatic startup checks, download progress, and a one-click update, install, and restart action.
+- Added encrypted storage for an optional read-only GitHub update token while the release repository remains private.
+
+### Changed
+
+- Packaged builds now explain why updates are unavailable instead of silently skipping checks; unsigned macOS builds direct users to the remaining signing requirement.
+
 ## [0.10.0] - 2026-07-26
 
 ### Changed

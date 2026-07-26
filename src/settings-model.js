@@ -44,24 +44,23 @@ function normalizeStoredSettings(stored = {}) {
     priorityStyle: validPriorityStyles.has(stored.priorityStyle) ? stored.priorityStyle : "dot",
     closeToTray: stored.closeToTray !== false,
     minimizeToTray: stored.minimizeToTray !== false,
+    startAtLogin: stored.startAtLogin === true,
     setupComplete: stored.setupComplete === true || (stored.setupComplete === undefined && legacyConnection)
   };
 }
 
-function loadStoredSettings(storedCandidates, decryptToken) {
-  const candidates = (Array.isArray(storedCandidates) ? storedCandidates : [storedCandidates]).filter(Boolean);
-  const stored = candidates[0] || {};
-  let token = "";
-  let encryptedToken = "";
-  let tokenSourceIndex = -1;
-  const encryptedTokenPresent = candidates.some((candidate) => Boolean(candidate.apiToken));
+function loadEncryptedSetting(candidates, key, decryptToken) {
+  let value = "";
+  let encryptedValue = "";
+  let sourceIndex = -1;
+  const encryptedValuePresent = candidates.some((candidate) => Boolean(candidate[key]));
 
   for (let index = 0; index < candidates.length; index += 1) {
-    if (!candidates[index].apiToken) continue;
+    if (!candidates[index][key]) continue;
     try {
-      token = decryptToken(candidates[index].apiToken);
-      encryptedToken = candidates[index].apiToken;
-      tokenSourceIndex = index;
+      value = decryptToken(candidates[index][key]);
+      encryptedValue = candidates[index][key];
+      sourceIndex = index;
       break;
     } catch {
       // Try a valid backup or a legacy userData directory.
@@ -69,12 +68,32 @@ function loadStoredSettings(storedCandidates, decryptToken) {
   }
 
   return {
+    value,
+    error: encryptedValuePresent && !value,
+    encryptedValuePresent,
+    encryptedValue,
+    sourceIndex
+  };
+}
+
+function loadStoredSettings(storedCandidates, decryptToken) {
+  const candidates = (Array.isArray(storedCandidates) ? storedCandidates : [storedCandidates]).filter(Boolean);
+  const stored = candidates[0] || {};
+  const plane = loadEncryptedSetting(candidates, "apiToken", decryptToken);
+  const updates = loadEncryptedSetting(candidates, "updateToken", decryptToken);
+
+  return {
     settings: normalizeStoredSettings(stored),
-    token,
-    tokenError: encryptedTokenPresent && !token,
-    encryptedTokenPresent,
-    encryptedToken,
-    tokenSourceIndex
+    token: plane.value,
+    tokenError: plane.error,
+    encryptedTokenPresent: plane.encryptedValuePresent,
+    encryptedToken: plane.encryptedValue,
+    tokenSourceIndex: plane.sourceIndex,
+    updateToken: updates.value,
+    updateTokenError: updates.error,
+    encryptedUpdateTokenPresent: updates.encryptedValuePresent,
+    encryptedUpdateToken: updates.encryptedValue,
+    updateTokenSourceIndex: updates.sourceIndex
   };
 }
 

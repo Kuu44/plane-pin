@@ -93,6 +93,7 @@ Controls use gently rounded corners (9–10px); dialogs use 16px. Task rows rema
 - **Input:** cool neutral field with a 1px divider-colored border and water-blue focus state.
 - **Onboarding:** a seven-view progressive dialog with separate member, project, and workflow-state choices that performs real connection setup and ends at the first loaded task list.
 - **Settings:** a separate persistent dialog for every connection, filter, refresh, theme, and window preference.
+- **Update row:** one plain status sentence and one contextual action. Progress appears only while downloading; credential and platform limitations remain explicit.
 - **Filter chooser:** flat member, project, and state rows with consistent spacing plus Select all and Select none actions.
 
 ## Do's and Don'ts

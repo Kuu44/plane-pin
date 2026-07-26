@@ -30,7 +30,7 @@ For a workspace Home address such as `https://plane.example.com/engineering/`, s
 
 Plane Pin keeps an icon in the Windows notification area, the macOS menu bar, or the Linux system tray. Closing or minimising the window parks the app on that icon rather than ending it, so the rail stays one click away. Left-click the icon to show or hide the window; right-click it for refresh, always on top, compact cards, Settings, and Exit. Exit from that menu is the only action that really closes Plane Pin.
 
-Both behaviours can be turned off individually under Settings → Window. On a Linux desktop with no system tray, Plane Pin detects the missing icon and keeps ordinary close and minimise behaviour so the window can never be hidden beyond reach.
+These behaviours can be turned off individually under Settings → Window. The same section can start Plane Pin quietly at sign-in on Windows, macOS, and Linux. On a Linux desktop with no system tray, Plane Pin detects the missing icon and keeps ordinary close and minimise behaviour so the window can never be hidden beyond reach.
 
 In task-only mode the window has no title bar, so press and hold anywhere on the rail and move to reposition it. A short press is still a click and opens that task in Plane. This works on Windows, macOS, and X11 Linux sessions; native Wayland does not allow applications to reposition their own windows.
 
@@ -87,7 +87,7 @@ There is no Apple Developer certificate for this project, so the macOS build is 
 xattr -dr com.apple.quarantine "/Applications/Plane Pin.app"
 ```
 
-Signing and notarising remains open in `TODO.md`.
+Signing and notarising remains open in `TODO.md`. Until that is done, Settings explains that automatic macOS installation is unavailable; Windows and Linux update normally.
 
 ### Application icon
 
@@ -111,9 +111,9 @@ That is normally `C:\Users\<you>\AppData\Roaming\plane-pin\settings.json`. The P
 
 Settings use one versioned format, are written atomically, and keep the previous valid file as `settings.backup.json`. Upgrade recovery checks that backup plus legacy Plane Pin folder names, then migrates recovered data back to the canonical path. If Windows cannot unlock any saved token, Plane Pin preserves the rest of the setup, opens normally, and asks only for a replacement token in Settings.
 
-The packaged app also checks for an update after launch. Because the GitHub repository is private, that check runs only when `GH_TOKEN` is set for the user launching Plane Pin. Do not put a GitHub token in the source or installer. A public release-only repository or another public HTTPS update feed would let normal installs update without a token.
+The packaged app checks for an update after launch. Settings → Updates can check again, show download progress, and install and restart into the new version. Because the GitHub repository is private, enter a fine-grained GitHub token with read-only **Contents** access in that section. Plane Pin encrypts it with the same operating-system credential storage used for the Plane token. `GH_TOKEN` remains available as an advanced environment-variable alternative. Never put a token in the source or installer.
 
-When an update is found, `electron-updater` downloads the NSIS installer and installs it when the app exits. GitHub Releases are created automatically when a matching version tag such as `v0.3.0` is pushed.
+When an update is found, the Update button downloads the platform package, closes Plane Pin without being intercepted by close-to-tray, installs it, and relaunches the app. GitHub Releases are created automatically when a matching version tag such as `v0.11.0` is pushed. A public release-only repository or another public HTTPS feed would remove the per-user GitHub-token requirement.
 
 See `AGENTS.md` for the branch, version, and release rules.
 

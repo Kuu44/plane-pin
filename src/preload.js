@@ -19,6 +19,12 @@ contextBridge.exposeInMainWorld("planePin", {
   endWindowDrag: () => ipcRenderer.invoke("window:drag-end"),
   openTask: (url) => ipcRenderer.invoke("task:open", url),
   listTasks: () => ipcRenderer.invoke("tasks:list"),
+  getUpdateState: () => ipcRenderer.invoke("update:get-state"),
+  checkForUpdates: () => ipcRenderer.invoke("update:check"),
+  installUpdate: () => ipcRenderer.invoke("update:install"),
+  onUpdateState: (handler) => {
+    ipcRenderer.on("update:state", (_event, state) => handler(state));
+  },
   onTrayCommand: (handler) => {
     ipcRenderer.on("tray:command", (_event, command) => {
       if (trayCommands.has(command)) handler(command);

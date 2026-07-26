@@ -72,12 +72,14 @@ test("the new window preferences round-trip exactly as stored", () => {
     compactCards: true,
     priorityStyle: "gradient",
     closeToTray: false,
-    minimizeToTray: false
+    minimizeToTray: false,
+    startAtLogin: true
   });
   assert.equal(off.compactCards, true);
   assert.equal(off.priorityStyle, "gradient");
   assert.equal(off.closeToTray, false);
   assert.equal(off.minimizeToTray, false);
+  assert.equal(off.startAtLogin, true);
 });
 
 test("junk values fall back to the safe default rather than a truthy surprise", () => {
@@ -91,6 +93,7 @@ test("junk values fall back to the safe default rather than a truthy surprise", 
   assert.equal(junk.priorityStyle, "dot", "priority dots are the default unless gradient is explicit");
   assert.equal(junk.closeToTray, true, "only an explicit false disables close-to-tray");
   assert.equal(junk.minimizeToTray, true);
+  assert.equal(junk.startAtLogin, false);
 });
 
 test("recovers a decryptable token from backup without replacing newer preferences", () => {
@@ -108,4 +111,19 @@ test("recovers a decryptable token from backup without replacing newer preferenc
   assert.equal(loaded.encryptedToken, "valid-backup");
   assert.equal(loaded.tokenSourceIndex, 1);
   assert.equal(loaded.tokenError, false);
+});
+
+test("recovers the private update token independently from the Plane token", () => {
+  const loaded = loadStoredSettings([
+    { apiToken: "plane-primary", updateToken: "broken-update" },
+    { updateToken: "valid-update" }
+  ], (encrypted) => {
+    if (encrypted === "broken-update") throw new Error("decrypt failed");
+    return `${encrypted}-decrypted`;
+  });
+
+  assert.equal(loaded.token, "plane-primary-decrypted");
+  assert.equal(loaded.updateToken, "valid-update-decrypted");
+  assert.equal(loaded.updateTokenSourceIndex, 1);
+  assert.equal(loaded.updateTokenError, false);
 });

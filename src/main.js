@@ -4,24 +4,83 @@ const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, nativeTheme, safeS
 const fs = require("node:fs");
 const path = require("node:path");
 const { autoUpdater } = require("electron-updater");
+const {
+  hiddenLaunchArgument,
+  linuxExecutable,
+  linuxLoginStartupEnabled,
+  setLinuxLoginStartup
+} = require("./login-startup");
 const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
 const { cleanIds, cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
 const { buildTrayMenuTemplate, trayLocationName, trayTooltip } = require("./tray-menu");
+const { createUpdateManager } = require("./update-manager");
 const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
 
 let mainWindow;
 let tray;
 let sessionToken = "";
+let sessionUpdateToken = "";
+let updateManager;
 let quitting = false;
 let dragOrigin = null;
 let lastTaskCount = 0;
 const settingsFileName = "settings.json";
+const macAutoUpdatesEnabled = false;
 
 const developmentUserDataArgument = process.argv.find((argument) => argument.startsWith("--plane-pin-user-data-dir="));
 const developmentUserData = !app.isPackaged
   && (process.env.PLANE_PIN_USER_DATA_DIR || developmentUserDataArgument?.split("=").slice(1).join("="));
 if (developmentUserData) app.disableHardwareAcceleration();
 app.setPath("userData", developmentUserData || path.join(app.getPath("appData"), "plane-pin"));
+
+function windowsLoginOptions() {
+  return { path: process.execPath, args: [hiddenLaunchArgument] };
+}
+
+function loginStartupState() {
+  if (!app.isPackaged) {
+    return { enabled: normalizeStoredSettings(readStoredSettings()).startAtLogin, status: "development" };
+  }
+  if (process.platform === "linux") {
+    const enabled = linuxLoginStartupEnabled(app.getPath("appData"));
+    return {
+      enabled,
+      status: enabled ? "enabled" : "disabled"
+    };
+  }
+  const options = process.platform === "win32" ? windowsLoginOptions() : undefined;
+  const state = app.getLoginItemSettings(options);
+  return {
+    enabled: process.platform === "win32"
+      ? Boolean(state.executableWillLaunchAtLogin ?? state.openAtLogin)
+      : Boolean(state.openAtLogin),
+    status: String(state.status || (state.openAtLogin ? "enabled" : "disabled"))
+  };
+}
+
+function setLoginStartup(enabled) {
+  const next = Boolean(enabled);
+  if (!app.isPackaged) return next;
+  if (process.platform === "linux") {
+    return setLinuxLoginStartup(
+      next,
+      app.getPath("appData"),
+      linuxExecutable(process.env, process.execPath)
+    );
+  }
+  app.setLoginItemSettings({
+    openAtLogin: next,
+    ...(process.platform === "win32" ? windowsLoginOptions() : {})
+  });
+  return loginStartupState().enabled;
+}
+
+function wasOpenedAtLogin() {
+  if (process.argv.includes(hiddenLaunchArgument)) return true;
+  return process.platform === "darwin"
+    && app.isPackaged
+    && Boolean(app.getLoginItemSettings().wasOpenedAtLogin);
+}
 
 function settingsPath() {
   return path.join(app.getPath("userData"), settingsFileName);
@@ -85,20 +144,28 @@ function loadSettings() {
     return safeStorage.decryptString(Buffer.from(encryptedToken, "base64"));
   });
   if (loaded.token) sessionToken = loaded.token;
+  if (loaded.updateToken) sessionUpdateToken = loaded.updateToken;
   const primaryRecord = records[0];
   const tokenRecord = records[loaded.tokenSourceIndex];
+  const updateTokenRecord = records[loaded.updateTokenSourceIndex];
   const needsMigration = primaryRecord
     && (primaryRecord.path !== settingsPath()
       || primaryRecord.value.schemaVersion !== 2
-      || (loaded.encryptedToken && tokenRecord?.path !== settingsPath()));
+      || (loaded.encryptedToken && tokenRecord?.path !== settingsPath())
+      || (loaded.encryptedUpdateToken && updateTokenRecord?.path !== settingsPath()));
   if (needsMigration) {
     writeStoredSettings({
       ...primaryRecord.value,
       ...loaded.settings,
-      ...(loaded.encryptedToken ? { apiToken: loaded.encryptedToken } : {})
+      ...(loaded.encryptedToken ? { apiToken: loaded.encryptedToken } : {}),
+      ...(loaded.encryptedUpdateToken ? { updateToken: loaded.encryptedUpdateToken } : {})
     }, false);
   }
-  return { ...loaded.settings, tokenError: loaded.tokenError };
+  return {
+    ...loaded.settings,
+    tokenError: loaded.tokenError,
+    updateTokenError: loaded.updateTokenError
+  };
 }
 
 function saveSettings(input) {
@@ -121,7 +188,9 @@ function saveSettings(input) {
   const compactCards = optionalFlag("compactCards");
   const closeToTray = optionalFlag("closeToTray");
   const minimizeToTray = optionalFlag("minimizeToTray");
+  const startAtLogin = optionalFlag("startAtLogin");
   const nextToken = String(input.apiToken || "").trim() || sessionToken;
+  const nextUpdateToken = String(input.updateToken || "").trim() || sessionUpdateToken;
 
   if (!workspaceSlug || !memberId || !nextToken) {
     throw new Error("Workspace home address, account, and API token are required.");
@@ -134,6 +203,7 @@ function saveSettings(input) {
   }
 
   sessionToken = nextToken;
+  sessionUpdateToken = nextUpdateToken;
   const stored = {
     schemaVersion: 2,
     baseUrl,
@@ -151,26 +221,41 @@ function saveSettings(input) {
     priorityStyle,
     closeToTray,
     minimizeToTray,
+    startAtLogin,
     setupComplete: true
   };
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the API token safely.");
   }
   stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
+  if (nextUpdateToken) {
+    stored.updateToken = safeStorage.encryptString(nextUpdateToken).toString("base64");
+  }
+  stored.startAtLogin = setLoginStartup(startAtLogin);
   writeStoredSettings(stored);
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   nativeTheme.themeSource = theme;
   refreshTray();
-  return { persistedToken: Boolean(stored.apiToken) };
+  if (nextUpdateToken) updateManager?.check();
+  return {
+    persistedToken: Boolean(stored.apiToken),
+    persistedUpdateToken: Boolean(stored.updateToken)
+  };
 }
 
 function publicSettings() {
   const settings = loadSettings();
+  const loginStartup = loginStartupState();
   return {
     ...settings,
+    startAtLogin: loginStartup.enabled,
+    loginStartupStatus: loginStartup.status,
     tokenSet: Boolean(sessionToken),
+    updateTokenSet: Boolean(sessionUpdateToken),
+    updateCredentialAvailable: Boolean(sessionUpdateToken || process.env.GH_TOKEN),
     platform: process.platform,
-    trayLocation: trayLocationName(process.platform)
+    trayLocation: trayLocationName(process.platform),
+    appVersion: app.getVersion()
   };
 }
 
@@ -265,7 +350,7 @@ function createTray() {
   refreshTray();
 }
 
-function createWindow() {
+function createWindow({ showOnReady = true } = {}) {
   const settings = loadSettings();
   nativeTheme.themeSource = settings.theme;
   mainWindow = new BrowserWindow({
@@ -310,22 +395,47 @@ function createWindow() {
   mainWindow.on("show", refreshTray);
   mainWindow.on("hide", refreshTray);
   mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
+    if (showOnReady) mainWindow.show();
     refreshTray();
   });
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
-function startAutoUpdates() {
-  if (!app.isPackaged || !process.env.GH_TOKEN) return;
-  autoUpdater.checkForUpdatesAndNotify().catch((error) => {
-    console.error(`Update check failed: ${error.message}`);
+function configureUpdateCredential() {
+  if (sessionUpdateToken) process.env.GH_TOKEN = sessionUpdateToken;
+}
+
+function createUpdateService() {
+  const supported = app.isPackaged && (process.platform !== "darwin" || macAutoUpdatesEnabled);
+  const unsupportedMessage = app.isPackaged
+    ? "Automatic macOS updates need a signed and notarised build."
+    : "Update checks are available in installed builds.";
+  updateManager = createUpdateManager({
+    updater: autoUpdater,
+    currentVersion: app.getVersion(),
+    supported,
+    unsupportedMessage,
+    hasCredential: () => Boolean(sessionUpdateToken || process.env.GH_TOKEN),
+    configureCredential: configureUpdateCredential,
+    beforeInstall: () => {
+      // quitAndInstall closes windows before Electron emits before-quit. Set this
+      // first so close-to-tray cannot intercept the updater's restart.
+      quitting = true;
+    },
+    notify: (state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update:state", state);
+      }
+    }
   });
 }
 
 ipcMain.handle("settings:get", () => publicSettings());
 ipcMain.handle("settings:save", (_event, input) => saveSettings(input));
+ipcMain.handle("update:get-state", () => updateManager?.getState());
+ipcMain.handle("update:check", () => updateManager?.check());
+ipcMain.handle("update:install", () => updateManager?.install());
 ipcMain.handle("setup:discover", async (_event, input) => {
   const apiToken = String(input.apiToken || "").trim() || sessionToken;
   if (!apiToken) throw new Error("Enter your personal access token first.");
@@ -442,9 +552,11 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     app.setAppUserModelId("com.niyalo.planepin");
+    loadSettings();
+    createUpdateService();
     createTray();
-    createWindow();
-    startAutoUpdates();
+    createWindow({ showOnReady: !wasOpenedAtLogin() || !tray });
+    updateManager.check();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
       else showWindow();
