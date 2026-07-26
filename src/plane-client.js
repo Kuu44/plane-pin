@@ -292,7 +292,12 @@ async function updateTaskState(config, request = fetch) {
       ? "This Plane token cannot change that task."
       : `Plane could not update the task (HTTP ${response.status}).`);
   }
-  return { stateId: String(state.id), stateName: String(state.name), stateGroup: String(state.group || "") };
+  return {
+    stateId: String(state.id),
+    stateName: String(state.name),
+    stateGroup: String(state.group || ""),
+    stateColor: String(state.color || "")
+  };
 }
 
 module.exports = {

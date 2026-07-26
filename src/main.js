@@ -3,6 +3,7 @@
 const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, nativeTheme, safeStorage, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const { randomUUID } = require("node:crypto");
 const { autoUpdater } = require("electron-updater");
 const {
   hiddenLaunchArgument,
@@ -37,6 +38,7 @@ let quitting = false;
 let dragOrigin = null;
 let lastTaskCount = 0;
 let lastTaskRefs = new Map();
+const pendingTaskUndos = new Map();
 const settingsFileName = "settings.json";
 const macAutoUpdatesEnabled = false;
 
@@ -241,6 +243,9 @@ async function saveSettings(input) {
   const priorityStyle = input.priorityStyle === "gradient" ? "gradient" : "dot";
   const currentStored = readStoredSettings();
   const current = normalizeStoredSettings(currentStored);
+  const collapsedGroupKeys = input.collapsedGroupKeys === undefined
+    ? current.collapsedGroupKeys
+    : cleanOrder(input.collapsedGroupKeys);
   const optionalFlag = (key) => (input[key] === undefined ? current[key] : Boolean(input[key]));
   const compactCards = optionalFlag("compactCards");
   const closeToTray = optionalFlag("closeToTray");
@@ -273,6 +278,7 @@ async function saveSettings(input) {
     memberOrder,
     projectOrder,
     stateOrder,
+    collapsedGroupKeys,
     groupByProject,
     groupByMember,
     changeOnCheck,
@@ -531,6 +537,11 @@ ipcMain.handle("settings:set-preference", (_event, key, value) => {
     refreshTray();
     return next;
   }
+  if (key === "collapsedGroupKeys") {
+    const collapsedGroupKeys = cleanOrder(value);
+    writeStoredSettings({ ...stored, schemaVersion: 3, collapsedGroupKeys });
+    return collapsedGroupKeys;
+  }
   throw new Error("Unknown preference.");
 });
 ipcMain.handle("window:minimize", () => mainWindow?.minimize());
@@ -583,16 +594,50 @@ ipcMain.handle("task:change-state", async (_event, input) => {
   if (!settings.changeOnCheck || !settings.checkTargetStateName || !sessionToken) {
     throw new Error("Turn on Change on check and choose a target state in Settings first.");
   }
-  if (lastTaskRefs.get(String(input?.taskId || "")) !== String(input?.projectId || "")) {
+  const taskId = String(input?.taskId || "");
+  const projectId = String(input?.projectId || "");
+  const taskRef = lastTaskRefs.get(taskId);
+  if (!taskRef || taskRef.projectId !== projectId) {
     throw new Error("Refresh the task list before changing this task.");
   }
-  return updateTaskState({
+  const result = await updateTaskState({
     ...settings,
     apiToken: sessionToken,
-    projectId: input?.projectId,
-    taskId: input?.taskId,
+    projectId,
+    taskId,
     stateName: settings.checkTargetStateName
   });
+  const undoToken = randomUUID();
+  pendingTaskUndos.set(undoToken, {
+    projectId,
+    stateName: taskRef.stateName,
+    taskId
+  });
+  lastTaskRefs.set(taskId, { projectId, stateName: result.stateName });
+  const cleanup = setTimeout(() => pendingTaskUndos.delete(undoToken), 15 * 60_000);
+  cleanup.unref?.();
+  return { ...result, undoToken };
+});
+ipcMain.handle("task:undo-state", async (_event, input) => {
+  if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
+  const undoToken = String(input?.undoToken || "");
+  const pending = pendingTaskUndos.get(undoToken);
+  if (!pending || !sessionToken) {
+    throw new Error("This Undo action is no longer available.");
+  }
+  const result = await updateTaskState({
+    ...loadSettings(),
+    apiToken: sessionToken,
+    projectId: pending.projectId,
+    taskId: pending.taskId,
+    stateName: pending.stateName
+  });
+  pendingTaskUndos.delete(undoToken);
+  lastTaskRefs.set(pending.taskId, {
+    projectId: pending.projectId,
+    stateName: result.stateName
+  });
+  return result;
 });
 ipcMain.handle("tasks:list", async () => {
   if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
@@ -604,7 +649,10 @@ ipcMain.handle("tasks:list", async () => {
   }
   const tasks = await fetchAssignedTasks({ ...settings, apiToken: sessionToken });
   lastTaskCount = tasks.length;
-  lastTaskRefs = new Map(tasks.map((task) => [String(task.id), String(task.project?.id || "")]));
+  lastTaskRefs = new Map(tasks.map((task) => [String(task.id), {
+    projectId: String(task.project?.id || ""),
+    stateName: String(task.state?.name || "")
+  }]));
   refreshTray();
   return tasks.map((task) => ({
     id: String(task.id),

@@ -222,7 +222,12 @@ test("changes a work item using the target project's matching state UUID", async
       return {
         ok: true,
         json: async () => [
-          { id: "50918ea1-52f7-48bd-abe3-d3efe76ff7dd", name: "Done", group: "completed" }
+          {
+            id: "50918ea1-52f7-48bd-abe3-d3efe76ff7dd",
+            name: "Done",
+            group: "completed",
+            color: "#46a758"
+          }
         ]
       };
     }
@@ -245,4 +250,5 @@ test("changes a work item using the target project's matching state UUID", async
   });
   assert.match(patch.url.pathname, new RegExp(`${projectA.id}/work-items/${taskId}/$`));
   assert.equal(result.stateGroup, "completed");
+  assert.equal(result.stateColor, "#46a758");
 });

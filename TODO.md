@@ -36,3 +36,4 @@
 - [x] Add saved member, project, and workflow-state ordering.
 - [x] Add optional member grouping without forcing project subgroups.
 - [x] Add a configurable check-to-change-state action with accessible celebration feedback.
+- [x] Add full-row reorder previews, persistent collapsible groups, unclipped tooltips, and stacked task-state Undo actions.
