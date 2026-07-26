@@ -31,13 +31,16 @@ Windows first, used beside day-to-day work. macOS and Linux packages are built f
 - Filters by any combination of exact workflow-state names.
 - Can group by project, stay above other windows, or hide all app and window chrome in task-only mode.
 - Stays in the tray when closed or minimised, with a right-click menu that ends in a real exit.
+- Can start quietly in that tray when the user signs in on Windows, macOS, or Linux.
 - Moves by press-and-hold anywhere while the chrome is hidden.
 - Offers two card densities: full metadata, or a compact name, estimate, and state mark.
 - Shows configured project estimates and offers dot or row-gradient priority treatments.
 - Opens task rows in Plane and refreshes automatically on a configurable interval.
+- Checks for releases at startup and provides an in-app download, install, and restart action where the packaged platform supports it.
 - Supports light and dark themes.
 - Read-only in the MVP.
 - Credentials must not be committed or exposed to the renderer.
+- Private release checks require a separately encrypted, read-only GitHub token until a public update feed exists.
 - Exact Plane API shape remains to be verified against the user's hosted version.
 
 ## Evidence on Hand

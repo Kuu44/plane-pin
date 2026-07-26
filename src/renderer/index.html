@@ -348,7 +348,7 @@
 
           <section class="settings-section">
             <div class="section-heading">
-              <h3>Appearance and updates</h3>
+              <h3>Appearance</h3>
             </div>
             <label class="preference-row">
               <span><strong>Group by project</strong><small>Show project headings in the task rail.</small></span>
@@ -390,9 +390,36 @@
 
           <section class="settings-section">
             <div class="section-heading">
+              <h3>Updates</h3>
+              <p>Plane Pin checks for a new release whenever it starts.</p>
+            </div>
+            <div class="update-row">
+              <span>
+                <strong id="update-status-title">Ready to check</strong>
+                <small id="update-status-message" role="status" aria-live="polite"></small>
+              </span>
+              <button id="update-action" class="secondary-button" type="button">Check for updates</button>
+            </div>
+            <progress id="update-progress" max="100" value="0" hidden aria-label="Update download progress"></progress>
+            <label class="field-label" for="settings-update-token">
+              GitHub update token
+              <span class="token-field">
+                <input id="settings-update-token" type="password" autocomplete="off" placeholder="github_pat_…">
+                <button id="settings-update-token-visibility" type="button" aria-pressed="false">Show</button>
+              </span>
+              <small id="settings-update-token-note">Required while the release repository is private. Use a fine-grained token with read-only Contents access.</small>
+            </label>
+          </section>
+
+          <section class="settings-section">
+            <div class="section-heading">
               <h3>Window</h3>
               <p id="tray-section-note">Plane Pin keeps a <span class="tray-location">system tray</span> icon. Right-click it to exit.</p>
             </div>
+            <label class="preference-row">
+              <span><strong>Start when I sign in</strong><small id="settings-start-at-login-note">Launch Plane Pin quietly in the <span class="tray-location">system tray</span>.</small></span>
+              <input id="settings-start-at-login" type="checkbox">
+            </label>
             <label class="preference-row">
               <span><strong>Close to the <span class="tray-location">system tray</span></strong><small>Closing the window keeps Plane Pin running and reachable from its icon.</small></span>
               <input id="settings-close-tray" type="checkbox">

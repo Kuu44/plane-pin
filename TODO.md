@@ -14,7 +14,7 @@
 - [x] Add macOS and Linux packaging and build both on tag pushes.
 - [ ] Verify the macOS `.dmg` and the Linux `.AppImage`/`.deb` on real hardware, including the tray icon and the task-only drag.
 - [ ] Revisit task-only dragging if Electron exposes a compositor-approved native Wayland move API.
-- [x] Add release branches, versioned builds, upgrade-safe Windows packaging, and update checks.
+- [x] Add release branches, versioned builds, upgrade-safe Windows packaging, startup update checks, and one-click install/restart.
 - [x] Add guided onboarding with account, project, and workflow-state discovery.
 - [x] Preserve settings and recover gracefully when a saved token cannot be decrypted.
 - [x] Add exact multi-state filtering, an All states option, compact mode, and keyboard shortcuts.
@@ -22,7 +22,8 @@
 - [x] Add configurable automatic refresh and browser links for tasks.
 - [x] Add frameless compact mode, light/dark themes, Plane-like state chips, and priority gradients.
 - [x] Recover encrypted credentials from backup and legacy settings locations across upgrades.
-- [ ] Choose a public binary-only update feed or provide private GitHub credentials per installed user.
+- [x] Accept an encrypted per-user read-only GitHub token for private release updates.
+- [ ] Choose a public binary-only update feed so installed users do not need GitHub credentials.
 - [x] Create the Git repository and connect its remote.
 - [x] Keep Plane Pin in the tray when the window closes or minimises, with a right-click exit.
 - [x] Move the window by pressing and holding anywhere in task-only mode.
@@ -32,3 +33,4 @@
 - [x] Add dot and gradient priority appearances with dots as the default.
 - [x] Show project estimates in full and compact task rows.
 - [x] Standardise connection setup on the Plane workspace Home address.
+- [x] Start quietly at login on Windows, macOS, and Linux.

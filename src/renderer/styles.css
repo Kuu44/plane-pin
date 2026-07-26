@@ -754,6 +754,20 @@ kbd {
 .section-heading { margin-bottom: 13px; }
 .settings-section .field-label:first-of-type { margin-top: 0; }
 
+.update-row {
+  display: flex;
+  min-width: 0;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.update-row > span { display: grid; min-width: 0; gap: 3px; }
+.update-row strong { font-size: 11px; }
+.update-row small { color: var(--muted); font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.update-row .secondary-button { flex: none; }
+#update-progress { width: 100%; height: 5px; margin-top: 10px; accent-color: var(--accent); }
+
 .inline-action {
   display: flex;
   min-width: 0;
@@ -896,6 +910,8 @@ kbd {
   .dialog-head, .setup-body, .settings-body, .dialog-actions { padding-inline: 14px; }
   .select-preference { align-items: flex-start; flex-direction: column; }
   .select-preference select { width: 100%; }
+  .update-row { align-items: stretch; flex-direction: column; }
+  .update-row .secondary-button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
