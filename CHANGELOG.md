@@ -6,6 +6,17 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-07-26
+
+### Changed
+
+- Upgraded to Electron 42 and moved Plane and GitHub tokens to its asynchronous operating-system credential storage, including automatic migration of existing encrypted tokens.
+
+### Fixed
+
+- Linux no longer treats a temporarily locked or unavailable system keyring as a deleted token or asks users to enter the token again.
+- Plane Pin retries the saved token when tasks refresh after the Linux keyring becomes available.
+
 ## [0.11.0] - 2026-07-26
 
 ### Added

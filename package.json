@@ -1,6 +1,6 @@
 {
   "name": "plane-pin",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "A compact desktop companion for your assigned Plane tasks.",
   "repository": "https://github.com/Kuu44/plane-pin",
   "main": "src/main.js",
@@ -81,7 +81,7 @@
     ]
   },
   "devDependencies": {
-    "electron": "^37.2.3",
+    "electron": "^42.3.0",
     "electron-builder": "^26.0.12"
   },
   "dependencies": {

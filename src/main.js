@@ -20,6 +20,14 @@ let mainWindow;
 let tray;
 let sessionToken = "";
 let sessionUpdateToken = "";
+let credentialState = {
+  tokenError: false,
+  tokenUnavailable: false,
+  encryptedTokenPresent: false,
+  updateTokenError: false,
+  updateTokenUnavailable: false,
+  encryptedUpdateTokenPresent: false
+};
 let updateManager;
 let quitting = false;
 let dragOrigin = null;
@@ -138,37 +146,65 @@ function writeStoredSettings(settings, backupCurrent = true) {
 }
 
 function loadSettings() {
+  return {
+    ...normalizeStoredSettings(readStoredSettings()),
+    tokenError: credentialState.tokenError,
+    tokenUnavailable: credentialState.tokenUnavailable,
+    updateTokenError: credentialState.updateTokenError,
+    updateTokenUnavailable: credentialState.updateTokenUnavailable
+  };
+}
+
+async function restoreCredentials() {
   const records = readStoredSettingsCandidates();
-  const loaded = loadStoredSettings(records.map((record) => record.value), (encryptedToken) => {
-    if (!safeStorage.isEncryptionAvailable()) throw new Error("OS encryption is unavailable.");
-    return safeStorage.decryptString(Buffer.from(encryptedToken, "base64"));
+  const reencrypted = new Map();
+  const loaded = await loadStoredSettings(records.map((record) => record.value), async (encryptedToken) => {
+    if (!await safeStorage.isAsyncEncryptionAvailable()) {
+      throw new Error("Secure credential storage is temporarily unavailable.");
+    }
+    const decrypted = await safeStorage.decryptStringAsync(Buffer.from(encryptedToken, "base64"));
+    if (decrypted.shouldReEncrypt) {
+      reencrypted.set(
+        encryptedToken,
+        (await safeStorage.encryptStringAsync(decrypted.result)).toString("base64")
+      );
+    }
+    return decrypted.result;
   });
   if (loaded.token) sessionToken = loaded.token;
   if (loaded.updateToken) sessionUpdateToken = loaded.updateToken;
+  credentialState = {
+    tokenError: loaded.tokenError,
+    tokenUnavailable: loaded.tokenUnavailable,
+    encryptedTokenPresent: loaded.encryptedTokenPresent,
+    updateTokenError: loaded.updateTokenError,
+    updateTokenUnavailable: loaded.updateTokenUnavailable,
+    encryptedUpdateTokenPresent: loaded.encryptedUpdateTokenPresent
+  };
   const primaryRecord = records[0];
   const tokenRecord = records[loaded.tokenSourceIndex];
   const updateTokenRecord = records[loaded.updateTokenSourceIndex];
+  const encryptedToken = reencrypted.get(loaded.encryptedToken) || loaded.encryptedToken;
+  const encryptedUpdateToken = reencrypted.get(loaded.encryptedUpdateToken) || loaded.encryptedUpdateToken;
   const needsMigration = primaryRecord
     && (primaryRecord.path !== settingsPath()
       || primaryRecord.value.schemaVersion !== 2
       || (loaded.encryptedToken && tokenRecord?.path !== settingsPath())
-      || (loaded.encryptedUpdateToken && updateTokenRecord?.path !== settingsPath()));
+      || (loaded.encryptedUpdateToken && updateTokenRecord?.path !== settingsPath())
+      || reencrypted.has(loaded.encryptedToken)
+      || reencrypted.has(loaded.encryptedUpdateToken));
   if (needsMigration) {
     writeStoredSettings({
       ...primaryRecord.value,
       ...loaded.settings,
-      ...(loaded.encryptedToken ? { apiToken: loaded.encryptedToken } : {}),
-      ...(loaded.encryptedUpdateToken ? { updateToken: loaded.encryptedUpdateToken } : {})
+      ...(encryptedToken ? { apiToken: encryptedToken } : {}),
+      ...(encryptedUpdateToken ? { updateToken: encryptedUpdateToken } : {})
     }, false);
   }
-  return {
-    ...loaded.settings,
-    tokenError: loaded.tokenError,
-    updateTokenError: loaded.updateTokenError
-  };
+  return loadSettings();
 }
 
-function saveSettings(input) {
+async function saveSettings(input) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const workspaceSlug = String(input.workspaceSlug || "").trim();
   const memberId = String(input.memberId || "").trim();
@@ -183,16 +219,17 @@ function saveSettings(input) {
     : 5;
   const theme = input.theme === "dark" ? "dark" : "light";
   const priorityStyle = input.priorityStyle === "gradient" ? "gradient" : "dot";
-  const current = normalizeStoredSettings(readStoredSettings());
+  const currentStored = readStoredSettings();
+  const current = normalizeStoredSettings(currentStored);
   const optionalFlag = (key) => (input[key] === undefined ? current[key] : Boolean(input[key]));
   const compactCards = optionalFlag("compactCards");
   const closeToTray = optionalFlag("closeToTray");
   const minimizeToTray = optionalFlag("minimizeToTray");
   const startAtLogin = optionalFlag("startAtLogin");
-  const nextToken = String(input.apiToken || "").trim() || sessionToken;
-  const nextUpdateToken = String(input.updateToken || "").trim() || sessionUpdateToken;
+  const suppliedToken = String(input.apiToken || "").trim();
+  const suppliedUpdateToken = String(input.updateToken || "").trim();
 
-  if (!workspaceSlug || !memberId || !nextToken) {
+  if (!workspaceSlug || !memberId || !(suppliedToken || sessionToken || currentStored.apiToken)) {
     throw new Error("Workspace home address, account, and API token are required.");
   }
   if (!isUuid(memberId)) {
@@ -202,8 +239,6 @@ function saveSettings(input) {
     throw new Error("Every selected member must have a valid Plane UUID.");
   }
 
-  sessionToken = nextToken;
-  sessionUpdateToken = nextUpdateToken;
   const stored = {
     schemaVersion: 2,
     baseUrl,
@@ -224,19 +259,37 @@ function saveSettings(input) {
     startAtLogin,
     setupComplete: true
   };
-  if (!safeStorage.isEncryptionAvailable()) {
+  stored.apiToken = currentStored.apiToken;
+  stored.updateToken = currentStored.updateToken;
+  if ((suppliedToken || (!stored.apiToken && sessionToken))
+    && !await safeStorage.isAsyncEncryptionAvailable()) {
     throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the API token safely.");
   }
-  stored.apiToken = safeStorage.encryptString(nextToken).toString("base64");
-  if (nextUpdateToken) {
-    stored.updateToken = safeStorage.encryptString(nextUpdateToken).toString("base64");
+  if (suppliedToken || (!stored.apiToken && sessionToken)) {
+    stored.apiToken = (await safeStorage.encryptStringAsync(suppliedToken || sessionToken)).toString("base64");
+  }
+  if (suppliedUpdateToken || (!stored.updateToken && sessionUpdateToken)) {
+    if (!await safeStorage.isAsyncEncryptionAvailable()) {
+      throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the update token safely.");
+    }
+    stored.updateToken = (await safeStorage.encryptStringAsync(suppliedUpdateToken || sessionUpdateToken)).toString("base64");
   }
   stored.startAtLogin = setLoginStartup(startAtLogin);
   writeStoredSettings(stored);
+  if (suppliedToken) sessionToken = suppliedToken;
+  if (suppliedUpdateToken) sessionUpdateToken = suppliedUpdateToken;
+  credentialState = {
+    tokenError: suppliedToken ? false : credentialState.tokenError,
+    tokenUnavailable: suppliedToken ? false : credentialState.tokenUnavailable,
+    encryptedTokenPresent: Boolean(stored.apiToken),
+    updateTokenError: suppliedUpdateToken ? false : credentialState.updateTokenError,
+    updateTokenUnavailable: suppliedUpdateToken ? false : credentialState.updateTokenUnavailable,
+    encryptedUpdateTokenPresent: Boolean(stored.updateToken)
+  };
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   nativeTheme.themeSource = theme;
   refreshTray();
-  if (nextUpdateToken) updateManager?.check();
+  if (suppliedUpdateToken) updateManager?.check();
   return {
     persistedToken: Boolean(stored.apiToken),
     persistedUpdateToken: Boolean(stored.updateToken)
@@ -250,8 +303,8 @@ function publicSettings() {
     ...settings,
     startAtLogin: loginStartup.enabled,
     loginStartupStatus: loginStartup.status,
-    tokenSet: Boolean(sessionToken),
-    updateTokenSet: Boolean(sessionUpdateToken),
+    tokenSet: Boolean(sessionToken || credentialState.encryptedTokenPresent),
+    updateTokenSet: Boolean(sessionUpdateToken || credentialState.encryptedUpdateTokenPresent),
     updateCredentialAvailable: Boolean(sessionUpdateToken || process.env.GH_TOKEN),
     platform: process.platform,
     trayLocation: trayLocationName(process.platform),
@@ -517,9 +570,12 @@ ipcMain.handle("task:open", async (_event, taskUrl) => {
   await shell.openExternal(url.toString());
 });
 ipcMain.handle("tasks:list", async () => {
+  if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
   const settings = loadSettings();
   if (!settings.baseUrl || !settings.workspaceSlug || !settings.memberId || !sessionToken) {
-    throw new Error("Connect Plane first.");
+    throw new Error(settings.tokenUnavailable
+      ? "Your saved token is safe, but the system keyring is still locked. Unlock it and refresh."
+      : "Connect Plane first.");
   }
   const tasks = await fetchAssignedTasks({ ...settings, apiToken: sessionToken });
   lastTaskCount = tasks.length;
@@ -550,9 +606,9 @@ if (!app.requestSingleInstanceLock()) {
   // A second launch reveals the running rail instead of starting a rival tray icon.
   app.on("second-instance", showWindow);
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     app.setAppUserModelId("com.niyalo.planepin");
-    loadSettings();
+    await restoreCredentials();
     createUpdateService();
     createTray();
     createWindow({ showOnReady: !wasOpenedAtLogin() || !tray });

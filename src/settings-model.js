@@ -49,48 +49,53 @@ function normalizeStoredSettings(stored = {}) {
   };
 }
 
-function loadEncryptedSetting(candidates, key, decryptToken) {
+async function loadEncryptedSetting(candidates, key, decryptToken) {
   let value = "";
   let encryptedValue = "";
   let sourceIndex = -1;
+  let temporarilyUnavailable = false;
   const encryptedValuePresent = candidates.some((candidate) => Boolean(candidate[key]));
 
   for (let index = 0; index < candidates.length; index += 1) {
     if (!candidates[index][key]) continue;
     try {
-      value = decryptToken(candidates[index][key]);
+      value = await decryptToken(candidates[index][key]);
       encryptedValue = candidates[index][key];
       sourceIndex = index;
       break;
-    } catch {
+    } catch (error) {
+      temporarilyUnavailable ||= /temporarily unavailable/i.test(String(error?.message || error));
       // Try a valid backup or a legacy userData directory.
     }
   }
 
   return {
     value,
-    error: encryptedValuePresent && !value,
+    error: encryptedValuePresent && !value && !temporarilyUnavailable,
+    temporarilyUnavailable: encryptedValuePresent && !value && temporarilyUnavailable,
     encryptedValuePresent,
     encryptedValue,
     sourceIndex
   };
 }
 
-function loadStoredSettings(storedCandidates, decryptToken) {
+async function loadStoredSettings(storedCandidates, decryptToken) {
   const candidates = (Array.isArray(storedCandidates) ? storedCandidates : [storedCandidates]).filter(Boolean);
   const stored = candidates[0] || {};
-  const plane = loadEncryptedSetting(candidates, "apiToken", decryptToken);
-  const updates = loadEncryptedSetting(candidates, "updateToken", decryptToken);
+  const plane = await loadEncryptedSetting(candidates, "apiToken", decryptToken);
+  const updates = await loadEncryptedSetting(candidates, "updateToken", decryptToken);
 
   return {
     settings: normalizeStoredSettings(stored),
     token: plane.value,
     tokenError: plane.error,
+    tokenUnavailable: plane.temporarilyUnavailable,
     encryptedTokenPresent: plane.encryptedValuePresent,
     encryptedToken: plane.encryptedValue,
     tokenSourceIndex: plane.sourceIndex,
     updateToken: updates.value,
     updateTokenError: updates.error,
+    updateTokenUnavailable: updates.temporarilyUnavailable,
     encryptedUpdateTokenPresent: updates.encryptedValuePresent,
     encryptedUpdateToken: updates.encryptedValue,
     updateTokenSourceIndex: updates.sourceIndex
