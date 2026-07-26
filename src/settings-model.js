@@ -40,6 +40,7 @@ function normalizeStoredSettings(stored = {}) {
     memberOrder: cleanOrder(stored.memberOrder),
     projectOrder: cleanOrder(stored.projectOrder),
     stateOrder: cleanOrder(stored.stateOrder),
+    collapsedGroupKeys: cleanOrder(stored.collapsedGroupKeys),
     groupByProject: stored.groupByProject !== false,
     groupByMember: stored.groupByMember === true,
     changeOnCheck: stored.changeOnCheck === true,

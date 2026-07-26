@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("planePin", {
   endWindowDrag: () => ipcRenderer.invoke("window:drag-end"),
   openTask: (url) => ipcRenderer.invoke("task:open", url),
   changeTaskState: (taskId, projectId) => ipcRenderer.invoke("task:change-state", { taskId, projectId }),
+  undoTaskState: (undoToken) => ipcRenderer.invoke("task:undo-state", { undoToken }),
   listTasks: () => ipcRenderer.invoke("tasks:list"),
   getUpdateState: () => ipcRenderer.invoke("update:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),

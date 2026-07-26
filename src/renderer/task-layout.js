@@ -18,6 +18,35 @@
     }).map(({ item }) => item);
   }
 
+  function moveOrderedValue(values, value, direction) {
+    const from = values.indexOf(value);
+    const to = Math.max(0, Math.min(values.length - 1, from + direction));
+    if (from < 0 || from === to) return [...values];
+    const next = [...values];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    return next;
+  }
+
+  function dropOrderedValue(values, dragged, target, position) {
+    if (!["before", "after"].includes(position) || dragged === target) return [...values];
+    const next = values.filter((value) => value !== dragged);
+    const targetIndex = next.indexOf(target);
+    if (targetIndex < 0 || next.length === values.length) return [...values];
+    next.splice(targetIndex + (position === "after" ? 1 : 0), 0, dragged);
+    return next;
+  }
+
+  function filterTasks(tasks, options = {}) {
+    const assigneeKeys = Array.isArray(options.assigneeIds) ? new Set(options.assigneeIds.map(key)) : null;
+    const projectKeys = Array.isArray(options.projectIds) ? new Set(options.projectIds.map(key)) : null;
+    const stateKeys = Array.isArray(options.stateNames) ? new Set(options.stateNames.map(key)) : null;
+    return tasks
+      .filter((task) => assigneeKeys === null
+        || (task.assignees || []).some((assignee) => assigneeKeys.has(key(assignee.id))))
+      .filter((task) => projectKeys === null || projectKeys.has(key(task.projectId)))
+      .filter((task) => stateKeys === null || stateKeys.has(key(task.stateName)));
+  }
+
   function sortTasks(tasks, stateOrder) {
     return tasks.map((task, index) => ({ task, index })).sort((left, right) => {
       const stateDifference = indexFor(stateOrder, left.task.stateName) - indexFor(stateOrder, right.task.stateName);
@@ -52,14 +81,22 @@
   function layoutTasks(tasks, options = {}) {
     const rows = [];
     const stateOrder = options.stateOrder || [];
-    const appendProjects = (projectTasks, nested = false) => {
+    const appendProjects = (projectTasks, nested = false, parentId = "") => {
       for (const project of group(
         projectTasks,
         (task) => task.projectId || task.projectIdentifier || task.projectName,
         (task) => task.projectName || task.projectIdentifier || "Project",
         options.projectOrder
       )) {
-        rows.push({ type: "project", name: project.name, count: project.tasks.length, nested });
+        rows.push({
+          type: "project",
+          id: project.id,
+          parentId,
+          key: `project:${parentId ? `${parentId}:` : ""}${project.id}`,
+          name: project.name,
+          count: project.tasks.length,
+          nested
+        });
         rows.push(...sortTasks(project.tasks, stateOrder).map((task) => ({ type: "task", task })));
       }
     };
@@ -77,8 +114,15 @@
         (task) => memberFor(task, orderedMembers).name,
         orderedMembers
       )) {
-        rows.push({ type: "member", name: member.name, count: member.tasks.length });
-        if (options.groupByProject) appendProjects(member.tasks, true);
+        const memberKey = member.id || "unassigned";
+        rows.push({
+          type: "member",
+          id: member.id,
+          key: `member:${memberKey}`,
+          name: member.name,
+          count: member.tasks.length
+        });
+        if (options.groupByProject) appendProjects(member.tasks, true, memberKey);
         else rows.push(...sortTasks(member.tasks, stateOrder).map((task) => ({ type: "task", task })));
       }
     } else if (options.groupByProject) {
@@ -89,7 +133,14 @@
     return rows;
   }
 
-  const api = { layoutTasks, orderItems, sortTasks };
+  const api = {
+    dropOrderedValue,
+    filterTasks,
+    layoutTasks,
+    moveOrderedValue,
+    orderItems,
+    sortTasks
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.planePinTaskLayout = api;
 })(typeof window !== "undefined" ? window : null);

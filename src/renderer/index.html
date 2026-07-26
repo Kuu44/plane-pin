@@ -148,6 +148,9 @@
       Drag anywhere to move · <kbd>Esc</kbd> shows controls
     </div>
 
+    <div id="undo-toasts" class="undo-toasts" aria-label="Recent task changes" aria-live="polite"></div>
+    <div id="app-tooltip" class="app-tooltip" role="tooltip" hidden></div>
+
     <dialog id="setup" class="setup-dialog" aria-labelledby="setup-title">
       <form id="setup-form" method="dialog" novalidate>
         <header class="dialog-head">
@@ -331,6 +334,7 @@
             <div class="section-heading">
               <h3>Tasks</h3>
               <p>Choose the members, projects, and workflow states that belong in the rail.</p>
+              <p class="ordering-note">Checked items appear in this order. Member and project order is used when its grouping option is enabled.</p>
             </div>
             <div class="filter-block">
               <h4>Members</h4>
@@ -356,6 +360,7 @@
                 <button id="settings-state-select-none" class="secondary-button" type="button">Select none</button>
               </div>
             </div>
+            <p id="reorder-status" class="sr-only" role="status" aria-live="polite"></p>
             <div class="filter-block completion-block">
               <label class="preference-row">
                 <span><strong>Change on check</strong><small>Reveal a checkmark on task cards that moves the task to another workflow state.</small></span>

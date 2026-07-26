@@ -145,6 +145,7 @@ test("persists ordering, member grouping, and completion defaults safely", () =>
     memberOrder: ["member-b", "member-a", "member-b"],
     projectOrder: ["project-b", "project-a"],
     stateOrder: ["Done", "In Progress"],
+    collapsedGroupKeys: ["member:member-a", "project:member-a:project-a", "member:member-a"],
     groupByMember: true,
     changeOnCheck: true,
     checkTargetStateName: "Done"
@@ -153,6 +154,7 @@ test("persists ordering, member grouping, and completion defaults safely", () =>
   assert.deepEqual(settings.memberOrder, ["member-b", "member-a"]);
   assert.deepEqual(settings.projectOrder, ["project-b", "project-a"]);
   assert.deepEqual(settings.stateOrder, ["Done", "In Progress"]);
+  assert.deepEqual(settings.collapsedGroupKeys, ["member:member-a", "project:member-a:project-a"]);
   assert.equal(settings.groupByMember, true);
   assert.equal(settings.changeOnCheck, true);
   assert.equal(settings.checkTargetStateName, "Done");

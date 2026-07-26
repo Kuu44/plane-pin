@@ -1,7 +1,13 @@
 "use strict";
 
 const $ = (selector) => document.querySelector(selector);
-const { layoutTasks, orderItems: orderedItems } = window.planePinTaskLayout;
+const {
+  dropOrderedValue,
+  filterTasks,
+  layoutTasks,
+  moveOrderedValue,
+  orderItems: orderedItems
+} = window.planePinTaskLayout;
 const elements = {
   updateToolbar: $("#update-toolbar"),
   pinToggle: $("#pin-toggle"),
@@ -16,6 +22,8 @@ const elements = {
   settingsOpen: $("#settings-open"),
   empty: $("#empty"),
   taskList: $("#task-list"),
+  undoToasts: $("#undo-toasts"),
+  appTooltip: $("#app-tooltip"),
   setup: $("#setup"),
   setupForm: $("#setup-form"),
   setupTitle: $("#setup-title"),
@@ -66,6 +74,7 @@ const elements = {
   settingsStateOptions: $("#settings-state-options"),
   settingsStateSelectAll: $("#settings-state-select-all"),
   settingsStateSelectNone: $("#settings-state-select-none"),
+  reorderStatus: $("#reorder-status"),
   settingsChangeOnCheck: $("#settings-change-on-check"),
   settingsCheckOptions: $("#settings-check-options"),
   settingsCheckTargetState: $("#settings-check-target-state"),
@@ -123,6 +132,11 @@ let compactMode = false;
 let refreshing = false;
 let compactHintTimer;
 let refreshTimer;
+let refreshQueued = false;
+let settingsRevision = 0;
+let taskRevision = 0;
+let cachedTasks = [];
+let hasTaskCache = false;
 let connectionDraft = { baseUrl: "", workspaceSlug: "" };
 let draftAssigneeIds;
 let draftProjectIds;
@@ -140,6 +154,8 @@ let dragFrame = 0;
 let pendingDrag = null;
 let isMac = false;
 let updateState = { status: "idle", currentVersion: "", availableVersion: "", progress: 0 };
+let activeTooltipTrigger = null;
+const tooltipDescriptions = new WeakMap();
 
 // macOS users press Command where Windows and Linux users press Control.
 const modifierLabel = () => (isMac ? "⌘" : "Ctrl");
@@ -156,6 +172,71 @@ function localiseShortcutLabels() {
       element.getAttribute("aria-keyshortcuts").replace(/Control\+/g, "Meta+")
     );
   }
+}
+
+function positionTooltip() {
+  if (!activeTooltipTrigger || elements.appTooltip.hidden) return;
+  const trigger = activeTooltipTrigger.getBoundingClientRect();
+  const tooltip = elements.appTooltip.getBoundingClientRect();
+  const inset = 8;
+  const gap = 7;
+  let top = trigger.bottom + gap;
+  if (top + tooltip.height > window.innerHeight - inset) {
+    top = trigger.top - tooltip.height - gap;
+  }
+  const left = Math.max(
+    inset,
+    Math.min(window.innerWidth - tooltip.width - inset, trigger.left + (trigger.width - tooltip.width) / 2)
+  );
+  elements.appTooltip.style.left = `${Math.round(left)}px`;
+  elements.appTooltip.style.top = `${Math.round(Math.max(inset, top))}px`;
+}
+
+function showTooltip(trigger) {
+  const copy = trigger?.dataset.tooltip;
+  if (!copy) return;
+  if (activeTooltipTrigger && activeTooltipTrigger !== trigger) hideTooltip();
+  activeTooltipTrigger = trigger;
+  if (!tooltipDescriptions.has(trigger)) tooltipDescriptions.set(trigger, trigger.getAttribute("aria-describedby"));
+  const describedBy = [tooltipDescriptions.get(trigger), elements.appTooltip.id].filter(Boolean).join(" ");
+  trigger.setAttribute("aria-describedby", describedBy);
+  elements.appTooltip.textContent = copy;
+  elements.appTooltip.hidden = false;
+  positionTooltip();
+}
+
+function hideTooltip() {
+  if (activeTooltipTrigger) {
+    const previous = tooltipDescriptions.get(activeTooltipTrigger);
+    if (previous) activeTooltipTrigger.setAttribute("aria-describedby", previous);
+    else activeTooltipTrigger.removeAttribute("aria-describedby");
+  }
+  activeTooltipTrigger = null;
+  elements.appTooltip.hidden = true;
+}
+
+function installTooltips() {
+  document.addEventListener("pointerover", (event) => {
+    const trigger = event.target.closest?.("[data-tooltip]");
+    if (trigger) showTooltip(trigger);
+  });
+  document.addEventListener("pointerout", (event) => {
+    const trigger = event.target.closest?.("[data-tooltip]");
+    if (trigger && !trigger.contains(event.relatedTarget) && document.activeElement !== trigger) hideTooltip();
+  });
+  document.addEventListener("focusin", (event) => {
+    const trigger = event.target.closest?.("[data-tooltip]");
+    if (trigger) showTooltip(trigger);
+  });
+  document.addEventListener("focusout", (event) => {
+    const trigger = event.target.closest?.("[data-tooltip]");
+    if (trigger && !trigger.matches(":hover")) hideTooltip();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideTooltip();
+  });
+  document.addEventListener("scroll", hideTooltip, true);
+  window.addEventListener("resize", positionTooltip);
 }
 
 function parsePlanePageUrl(value) {
@@ -292,23 +373,64 @@ function setEverySelection(container, checked, onChange) {
   onChange();
 }
 
-function addReorderHandle(row, value, orderedValues, onReorder) {
+function clearReorderMarkers(container) {
+  for (const item of container?.querySelectorAll(".drop-before, .drop-after") || []) {
+    item.classList.remove("drop-before", "drop-after");
+    delete item.dataset.dropPosition;
+  }
+}
+
+function commitReorder(row, next, value, label, onReorder, restoreFocus) {
+  const container = row.parentElement;
+  const previousPositions = new Map(
+    [...container.querySelectorAll(".selection-row")].map((item) => [
+      item.dataset.reorderValue,
+      item.getBoundingClientRect()
+    ])
+  );
+  clearReorderMarkers(container);
+  onReorder(next);
+  requestAnimationFrame(() => {
+    const rows = [...container.querySelectorAll(".selection-row")];
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      for (const item of rows) {
+        const previous = previousPositions.get(item.dataset.reorderValue);
+        const current = item.getBoundingClientRect();
+        const deltaY = previous ? previous.top - current.top : 0;
+        if (deltaY && item.animate) {
+          item.animate(
+            [{ transform: `translateY(${deltaY}px)` }, { transform: "translateY(0)" }],
+            { duration: 180, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+          );
+        }
+      }
+    }
+    const movedRow = rows.find((item) => item.dataset.reorderValue === value);
+    if (restoreFocus) movedRow?.querySelector(".drag-handle")?.focus({ preventScroll: true });
+    const position = next.indexOf(value) + 1;
+    elements.reorderStatus.textContent = `Moved ${label} to position ${position} of ${next.length}.`;
+  });
+}
+
+function addReorderHandle(row, value, label, orderedValues, onReorder) {
+  row.dataset.reorderValue = value;
   const handle = document.createElement("span");
   handle.className = "drag-handle";
   handle.draggable = true;
   handle.tabIndex = 0;
   handle.setAttribute("role", "button");
-  handle.setAttribute("aria-label", "Drag to reorder");
+  handle.setAttribute(
+    "aria-label",
+    `Reorder ${label}, position ${orderedValues.indexOf(value) + 1} of ${orderedValues.length}`
+  );
   handle.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
+  handle.dataset.tooltip = `Drag to reorder ${label} - Alt+Up/Down`;
   handle.innerHTML = "<i></i><i></i><i></i>";
 
   const move = (direction) => {
-    const from = orderedValues.indexOf(value);
-    const to = Math.max(0, Math.min(orderedValues.length - 1, from + direction));
-    if (from === to) return;
-    const next = [...orderedValues];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    onReorder(next);
+    const next = moveOrderedValue(orderedValues, value, direction);
+    if (next.every((item, index) => item === orderedValues[index])) return;
+    commitReorder(row, next, value, label, onReorder, true);
   };
   handle.addEventListener("keydown", (event) => {
     if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
@@ -320,22 +442,43 @@ function addReorderHandle(row, value, orderedValues, onReorder) {
   handle.addEventListener("dragstart", (event) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", value);
+    const bounds = row.getBoundingClientRect();
+    event.dataTransfer.setDragImage(
+      row,
+      Math.max(0, event.clientX - bounds.left),
+      Math.max(0, event.clientY - bounds.top)
+    );
     row.classList.add("is-dragging");
   });
-  handle.addEventListener("dragend", () => row.classList.remove("is-dragging"));
+  handle.addEventListener("dragend", () => {
+    row.classList.remove("is-dragging");
+    clearReorderMarkers(row.parentElement);
+  });
   row.addEventListener("dragover", (event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
+    const dragged = event.dataTransfer.getData("text/plain");
+    if (!dragged || dragged === value) return;
+    const bounds = row.getBoundingClientRect();
+    const position = event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+    clearReorderMarkers(row.parentElement);
+    row.classList.add(position === "before" ? "drop-before" : "drop-after");
+    row.dataset.dropPosition = position;
+  });
+  row.addEventListener("dragleave", (event) => {
+    if (!row.contains(event.relatedTarget)) {
+      row.classList.remove("drop-before", "drop-after");
+      delete row.dataset.dropPosition;
+    }
   });
   row.addEventListener("drop", (event) => {
     event.preventDefault();
     const dragged = event.dataTransfer.getData("text/plain");
-    const from = orderedValues.indexOf(dragged);
-    const to = orderedValues.indexOf(value);
-    if (from < 0 || to < 0 || from === to) return;
-    const next = [...orderedValues];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    onReorder(next);
+    const next = dropOrderedValue(orderedValues, dragged, value, row.dataset.dropPosition);
+    if (next.every((item, index) => item === orderedValues[index])) return;
+    const draggedRow = [...row.parentElement.querySelectorAll(".selection-row")]
+      .find((item) => item.dataset.reorderValue === dragged);
+    commitReorder(draggedRow || row, next, dragged, draggedRow?.querySelector("strong")?.textContent || dragged, onReorder, false);
   });
   row.append(handle);
 }
@@ -421,7 +564,7 @@ function renderStateRows(container, states, selectedNames, onChange, reorder = n
     group.textContent = stateGroupLabels[state.group] || "Workflow state";
     copy.append(name, group);
     label.append(input, stateGlyph(state.group, state.color), copy);
-    if (reorder) addReorderHandle(label, state.name, orderedValues, reorder.onChange);
+    if (reorder) addReorderHandle(label, state.name, state.name, orderedValues, reorder.onChange);
     return label;
   });
   container.replaceChildren(...rows);
@@ -446,7 +589,7 @@ function renderSelectionRows(container, items, selectedIds, secondaryText, onCha
     secondary.textContent = secondaryText(item);
     copy.append(name, secondary);
     label.append(input, copy);
-    if (reorder) addReorderHandle(label, item.id, orderedValues, reorder.onChange);
+    if (reorder) addReorderHandle(label, item.id, item.name, orderedValues, reorder.onChange);
     return label;
   });
   container.replaceChildren(...rows);
@@ -879,10 +1022,12 @@ async function saveSettingsForm() {
       theme: elements.settingsThemeDark.checked ? "dark" : "light"
     });
     settings = await window.planePin.getSettings();
+    settingsRevision += 1;
     applySettingsToShell();
+    renderCachedTasks();
     elements.settingsDialog.close();
     scheduleAutoRefresh();
-    await refreshTasks();
+    void refreshTasks({ quiet: true });
   } catch (error) {
     elements.settingsError.textContent = error.message;
   } finally {
@@ -942,6 +1087,70 @@ function celebrateTask(item) {
   setTimeout(() => context.close(), 500);
 }
 
+function replaceCachedTask(nextTask) {
+  const index = cachedTasks.findIndex((task) =>
+    task.id === nextTask.id && task.projectId === nextTask.projectId);
+  if (index < 0) cachedTasks.push(nextTask);
+  else cachedTasks[index] = nextTask;
+}
+
+function createUndoToast(originalTask, result) {
+  const toast = document.createElement("div");
+  toast.className = "undo-toast";
+  toast.setAttribute("role", "status");
+  const message = document.createElement("span");
+  message.textContent = `Moved ${originalTask.identifier} to ${result.stateName}.`;
+  const undo = document.createElement("button");
+  undo.type = "button";
+  undo.textContent = "Undo";
+  toast.append(message, undo);
+  elements.undoToasts.append(toast);
+
+  let remaining = 8000;
+  let startedAt = Date.now();
+  let timer;
+  const dismiss = () => {
+    clearTimeout(timer);
+    toast.remove();
+  };
+  const resume = () => {
+    if (!toast.isConnected || toast.classList.contains("is-error")) return;
+    startedAt = Date.now();
+    clearTimeout(timer);
+    timer = setTimeout(dismiss, remaining);
+  };
+  const pause = () => {
+    clearTimeout(timer);
+    remaining = Math.max(0, remaining - (Date.now() - startedAt));
+  };
+  const undoChange = async () => {
+    clearTimeout(timer);
+    undo.disabled = true;
+    message.textContent = `Restoring ${originalTask.identifier}...`;
+    try {
+      await window.planePin.undoTaskState(result.undoToken);
+      taskRevision += 1;
+      replaceCachedTask(originalTask);
+      renderCachedTasks();
+      dismiss();
+      void refreshTasks({ quiet: true });
+    } catch {
+      toast.classList.add("is-error");
+      message.textContent = `Couldn't undo ${originalTask.identifier}. Try again.`;
+      undo.textContent = "Try again";
+      undo.disabled = false;
+    }
+  };
+  toast.addEventListener("pointerenter", pause);
+  toast.addEventListener("pointerleave", resume);
+  toast.addEventListener("focusin", pause);
+  toast.addEventListener("focusout", (event) => {
+    if (!toast.contains(event.relatedTarget)) resume();
+  });
+  undo.addEventListener("click", undoChange);
+  resume();
+}
+
 function taskRow(task) {
   const item = document.createElement("li");
   item.className = "task-item";
@@ -987,6 +1196,7 @@ function taskRow(task) {
   button.append(priorityDot, name, meta, openIcon);
   item.append(button);
   if (settings.changeOnCheck) {
+    item.classList.add("has-completion");
     const complete = document.createElement("button");
     complete.className = "complete-task";
     complete.type = "button";
@@ -998,11 +1208,23 @@ function taskRow(task) {
       complete.disabled = true;
       item.classList.add("is-checking");
       try {
-        await window.planePin.changeTaskState(task.id, task.projectId);
+        const originalTask = { ...task };
+        const result = await window.planePin.changeTaskState(task.id, task.projectId);
+        taskRevision += 1;
+        replaceCachedTask({
+          ...task,
+          stateName: result.stateName,
+          stateGroup: result.stateGroup,
+          stateColor: result.stateColor
+        });
         item.classList.remove("is-checking");
         item.classList.add("is-checked");
         celebrateTask(item);
-        setTimeout(refreshTasks, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 700);
+        createUndoToast(originalTask, result);
+        setTimeout(() => {
+          renderCachedTasks();
+          void refreshTasks({ quiet: true });
+        }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 650);
       } catch (error) {
         item.classList.remove("is-checking");
         complete.disabled = false;
@@ -1015,15 +1237,65 @@ function taskRow(task) {
   return item;
 }
 
-function groupHeading(type, nameText, count, nested = false) {
-  const heading = document.createElement("li");
-  heading.className = `${type}-heading${nested ? " is-nested" : ""}`;
+function groupSection(row) {
+  const section = document.createElement("li");
+  section.className = `group-section ${row.type}-section${row.nested ? " is-nested" : ""}`;
+  const heading = document.createElement("button");
+  heading.type = "button";
+  heading.className = `${row.type}-heading`;
   const name = document.createElement("span");
-  name.textContent = nameText;
+  name.textContent = row.name;
+  const trailing = document.createElement("span");
+  trailing.className = "group-heading-trailing";
   const total = document.createElement("span");
-  total.textContent = String(count);
-  heading.append(name, total);
-  return heading;
+  total.textContent = String(row.count);
+  const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  chevron.setAttribute("viewBox", "0 0 16 16");
+  chevron.setAttribute("aria-hidden", "true");
+  chevron.classList.add("group-chevron");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "m6 3 5 5-5 5");
+  chevron.append(path);
+  trailing.append(total, chevron);
+  heading.append(name, trailing);
+
+  const collapse = document.createElement("div");
+  collapse.className = "group-collapse";
+  collapse.id = `group-${row.key.replace(/[^a-z0-9_-]/gi, "-")}`;
+  const items = document.createElement("ul");
+  items.className = "group-items";
+  collapse.append(items);
+  heading.setAttribute("aria-controls", collapse.id);
+
+  const applyCollapsed = (collapsed) => {
+    section.classList.toggle("is-collapsed", collapsed);
+    heading.setAttribute("aria-expanded", String(!collapsed));
+    collapse.setAttribute("aria-hidden", String(collapsed));
+    collapse.inert = collapsed;
+  };
+  applyCollapsed((settings.collapsedGroupKeys || []).includes(row.key));
+  heading.addEventListener("click", async () => {
+    const previous = [...(settings.collapsedGroupKeys || [])];
+    const collapsed = !section.classList.contains("is-collapsed");
+    const next = new Set(previous);
+    if (collapsed) next.add(row.key);
+    else next.delete(row.key);
+    settings.collapsedGroupKeys = [...next];
+    applyCollapsed(collapsed);
+    try {
+      settings.collapsedGroupKeys = await window.planePin.setPreference(
+        "collapsedGroupKeys",
+        settings.collapsedGroupKeys
+      );
+    } catch (error) {
+      settings.collapsedGroupKeys = previous;
+      applyCollapsed(!collapsed);
+      elements.status.textContent = "Couldn't save collapsed groups";
+      elements.count.textContent = error.message;
+    }
+  });
+  section.append(heading, collapse);
+  return { section, items };
 }
 
 function filterTitle() {
@@ -1034,11 +1306,24 @@ function filterTitle() {
 }
 
 function renderTasks(tasks) {
-  const rows = layoutTasks(tasks, settings).map((row) => {
-    if (row.type === "task") return taskRow(row.task);
-    return groupHeading(row.type, row.name, row.count, row.nested);
-  });
-  elements.taskList.replaceChildren(...rows);
+  const root = document.createDocumentFragment();
+  let memberItems = null;
+  let projectItems = null;
+  for (const row of layoutTasks(tasks, settings)) {
+    if (row.type === "member") {
+      const group = groupSection(row);
+      root.append(group.section);
+      memberItems = group.items;
+      projectItems = null;
+    } else if (row.type === "project") {
+      const group = groupSection(row);
+      (memberItems || root).append(group.section);
+      projectItems = group.items;
+    } else {
+      (projectItems || memberItems || root).append(taskRow(row.task));
+    }
+  }
+  elements.taskList.replaceChildren(root);
   elements.taskList.hidden = tasks.length === 0;
   elements.empty.hidden = tasks.length > 0;
   elements.listTitle.textContent = filterTitle();
@@ -1049,15 +1334,41 @@ function renderTasks(tasks) {
   elements.status.textContent = settings.memberName ? `Connected as ${settings.memberName}` : "Connected";
 }
 
-async function refreshTasks() {
-  if (refreshing || !settings.tokenSet) return;
+function renderCachedTasks() {
+  if (!hasTaskCache) return;
+  renderTasks(filterTasks(cachedTasks, settings));
+}
+
+async function refreshTasks(options = {}) {
+  const quiet = Boolean(options.quiet);
+  if (!settings.tokenSet) return;
+  if (refreshing) {
+    refreshQueued = true;
+    return;
+  }
   refreshing = true;
+  const requestedSettingsRevision = settingsRevision;
+  const requestedTaskRevision = taskRevision;
   elements.refresh.disabled = true;
   elements.refresh.classList.add("is-refreshing");
+  const previousStatus = elements.status.textContent;
   elements.status.textContent = "Refreshing…";
+  if (quiet) elements.status.textContent = previousStatus;
   try {
-    renderTasks(await window.planePin.listTasks());
+    const tasks = await window.planePin.listTasks();
+    if (requestedSettingsRevision !== settingsRevision || requestedTaskRevision !== taskRevision) {
+      refreshQueued = true;
+      return;
+    }
+    cachedTasks = tasks;
+    hasTaskCache = true;
+    renderCachedTasks();
   } catch (error) {
+    if (hasTaskCache) {
+      renderCachedTasks();
+      elements.status.textContent = "Couldn't refresh - showing saved results";
+      return;
+    }
     elements.status.textContent = "Needs attention";
     elements.count.textContent = error.message;
     elements.taskList.hidden = true;
@@ -1071,6 +1382,10 @@ async function refreshTasks() {
     refreshing = false;
     elements.refresh.disabled = false;
     elements.refresh.classList.remove("is-refreshing");
+    if (refreshQueued) {
+      refreshQueued = false;
+      queueMicrotask(() => refreshTasks({ quiet: true }));
+    }
   }
 }
 
@@ -1149,7 +1464,7 @@ async function refreshUpdateState() {
 elements.pinToggle.addEventListener("click", togglePin);
 elements.themeToggle.addEventListener("click", toggleTheme);
 elements.compactToggle.addEventListener("click", () => setCompactMode(!compactMode));
-elements.refresh.addEventListener("click", refreshTasks);
+elements.refresh.addEventListener("click", () => refreshTasks());
 elements.settingsOpen.addEventListener("click", openSettings);
 $("#start-setup").addEventListener("click", () => settings.setupComplete ? openSettings() : openOnboarding());
 $("#window-minimize").addEventListener("click", window.planePin.minimizeWindow);
@@ -1344,4 +1659,5 @@ async function init() {
   $("#start-setup").textContent = "Open settings";
 }
 
+installTooltips();
 init();

@@ -6,6 +6,25 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-26
+
+### Added
+
+- Added persistent, accessible collapse controls for member and project task groups.
+- Added stacked eight-second Undo actions after task state changes, including a real Plane state reversal and retry feedback.
+
+### Changed
+
+- Reordering members, projects, and workflow states now drags the full row, previews the exact insertion point, settles smoothly, and announces keyboard moves.
+- Task completion controls now sit at the right edge with a larger target and one subtle hover halo.
+- Settings layout changes apply immediately from the current task cache before Plane refreshes in the background.
+
+### Fixed
+
+- Tooltips now render above the application shell and stay inside the visible window.
+- Stale or failed refreshes no longer overwrite current layout changes or hide already-loaded tasks.
+- Compact completion animation no longer jumps vertically.
+
 ## [0.12.0] - 2026-07-26
 
 ### Added
