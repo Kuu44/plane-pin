@@ -111,9 +111,9 @@ That is normally `C:\Users\<you>\AppData\Roaming\plane-pin\settings.json`. The P
 
 Settings use one versioned format, are written atomically, and keep the previous valid file as `settings.backup.json`. Upgrade recovery checks that backup plus legacy Plane Pin folder names, then migrates recovered data back to the canonical path. If Windows cannot unlock any saved token, Plane Pin preserves the rest of the setup, opens normally, and asks only for a replacement token in Settings.
 
-The packaged app checks for an update after launch. Settings → Updates can check again, show download progress, and install and restart into the new version. Because the GitHub repository is private, enter a fine-grained GitHub token with read-only **Contents** access in that section. Plane Pin encrypts it with the same operating-system credential storage used for the Plane token. `GH_TOKEN` remains available as an advanced environment-variable alternative. Never put a token in the source or installer.
+The packaged app checks the public GitHub release feed after launch. Settings → Updates can check again, show download progress, and install and restart into the new version. No GitHub token is required or stored.
 
-When an update is found, the Update button downloads the platform package, closes Plane Pin without being intercepted by close-to-tray, installs it, and relaunches the app. GitHub Releases are created automatically when a matching version tag such as `v0.11.0` is pushed. A public release-only repository or another public HTTPS feed would remove the per-user GitHub-token requirement.
+When an update is found, the toolbar shows a glowing update button. It downloads the platform package, closes Plane Pin without being intercepted by close-to-tray, installs it, and relaunches the app. GitHub Releases are created automatically when a matching version tag such as `v0.12.0` is pushed.
 
 See `AGENTS.md` for the branch, version, and release rules.
 

@@ -6,6 +6,20 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-26
+
+### Added
+
+- Added drag-to-reorder controls for members, projects, and workflow states; the task rail now follows those saved orders.
+- Added optional member grouping, with project subgroups shown only when project grouping is also enabled.
+- Added an optional task checkmark that changes the work item to a chosen Plane workflow state, then confirms success with animation, confetti, and an optional party sound.
+- Added a glowing toolbar update button that appears only when an update is ready to download or install.
+
+### Changed
+
+- Switched automatic updates to the public GitHub release feed, removing the GitHub token field and its stored credential.
+- Multi-assignee tasks appear once under the first matching member in the configured member order.
+
 ## [0.11.1] - 2026-07-26
 
 ### Changed

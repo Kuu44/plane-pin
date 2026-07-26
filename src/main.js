@@ -10,8 +10,16 @@ const {
   linuxLoginStartupEnabled,
   setLinuxLoginStartup
 } = require("./login-startup");
-const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, isUuid, normalizeBaseUrl } = require("./plane-client");
-const { cleanIds, cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
+const {
+  buildTaskUrl,
+  discoverWorkspace,
+  fetchAssignedTasks,
+  isUuid,
+  normalizeBaseUrl,
+  taskAssignees,
+  updateTaskState
+} = require("./plane-client");
+const { cleanIds, cleanOrder, cleanStateNames, loadStoredSettings, normalizeStoredSettings } = require("./settings-model");
 const { buildTrayMenuTemplate, trayLocationName, trayTooltip } = require("./tray-menu");
 const { createUpdateManager } = require("./update-manager");
 const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
@@ -19,19 +27,16 @@ const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
 let mainWindow;
 let tray;
 let sessionToken = "";
-let sessionUpdateToken = "";
 let credentialState = {
   tokenError: false,
   tokenUnavailable: false,
-  encryptedTokenPresent: false,
-  updateTokenError: false,
-  updateTokenUnavailable: false,
-  encryptedUpdateTokenPresent: false
+  encryptedTokenPresent: false
 };
 let updateManager;
 let quitting = false;
 let dragOrigin = null;
 let lastTaskCount = 0;
+let lastTaskRefs = new Map();
 const settingsFileName = "settings.json";
 const macAutoUpdatesEnabled = false;
 
@@ -166,9 +171,7 @@ function loadSettings() {
   return {
     ...normalizeStoredSettings(readStoredSettings()),
     tokenError: credentialState.tokenError,
-    tokenUnavailable: credentialState.tokenUnavailable,
-    updateTokenError: credentialState.updateTokenError,
-    updateTokenUnavailable: credentialState.updateTokenUnavailable
+    tokenUnavailable: credentialState.tokenUnavailable
   };
 }
 
@@ -189,33 +192,26 @@ async function restoreCredentials() {
     return decrypted.result;
   });
   if (loaded.token) sessionToken = loaded.token;
-  if (loaded.updateToken) sessionUpdateToken = loaded.updateToken;
   credentialState = {
     tokenError: loaded.tokenError,
     tokenUnavailable: loaded.tokenUnavailable,
-    encryptedTokenPresent: loaded.encryptedTokenPresent,
-    updateTokenError: loaded.updateTokenError,
-    updateTokenUnavailable: loaded.updateTokenUnavailable,
-    encryptedUpdateTokenPresent: loaded.encryptedUpdateTokenPresent
+    encryptedTokenPresent: loaded.encryptedTokenPresent
   };
   const primaryRecord = records[0];
   const tokenRecord = records[loaded.tokenSourceIndex];
-  const updateTokenRecord = records[loaded.updateTokenSourceIndex];
-  const encryptedToken = reencrypted.get(loaded.encryptedToken) || loaded.encryptedToken;
-  const encryptedUpdateToken = reencrypted.get(loaded.encryptedUpdateToken) || loaded.encryptedUpdateToken;
+  const encryptedToken = reencrypted.get(loaded.encryptedToken)
+    || loaded.encryptedToken
+    || records.find((record) => record.value.apiToken)?.value.apiToken;
   const needsMigration = primaryRecord
     && (primaryRecord.path !== settingsPath()
-      || primaryRecord.value.schemaVersion !== 2
+      || primaryRecord.value.schemaVersion !== 3
       || (loaded.encryptedToken && tokenRecord?.path !== settingsPath())
-      || (loaded.encryptedUpdateToken && updateTokenRecord?.path !== settingsPath())
       || reencrypted.has(loaded.encryptedToken)
-      || reencrypted.has(loaded.encryptedUpdateToken));
+      || Boolean(primaryRecord.value.updateToken));
   if (needsMigration) {
     writeStoredSettings({
-      ...primaryRecord.value,
       ...loaded.settings,
-      ...(encryptedToken ? { apiToken: encryptedToken } : {}),
-      ...(encryptedUpdateToken ? { updateToken: encryptedUpdateToken } : {})
+      ...(encryptedToken ? { apiToken: encryptedToken } : {})
     }, false);
   }
   return loadSettings();
@@ -229,7 +225,14 @@ async function saveSettings(input) {
   const assigneeIds = cleanIds(input.assigneeIds);
   const projectIds = input.projectIds === null ? null : cleanIds(input.projectIds);
   const stateNames = input.stateNames === null ? null : cleanStateNames(input.stateNames);
+  const memberOrder = cleanOrder(input.memberOrder);
+  const projectOrder = cleanOrder(input.projectOrder);
+  const stateOrder = cleanOrder(input.stateOrder);
   const groupByProject = Boolean(input.groupByProject);
+  const groupByMember = Boolean(input.groupByMember);
+  const changeOnCheck = Boolean(input.changeOnCheck);
+  const checkTargetStateName = String(input.checkTargetStateName || "").trim().slice(0, 100);
+  const completionSound = input.completionSound !== false;
   const alwaysOnTop = Boolean(input.alwaysOnTop);
   const refreshMinutes = [0, 1, 5, 10, 15, 30].includes(Number(input.refreshMinutes))
     ? Number(input.refreshMinutes)
@@ -244,7 +247,6 @@ async function saveSettings(input) {
   const minimizeToTray = optionalFlag("minimizeToTray");
   const startAtLogin = optionalFlag("startAtLogin");
   const suppliedToken = String(input.apiToken || "").trim();
-  const suppliedUpdateToken = String(input.updateToken || "").trim();
 
   if (!workspaceSlug || !memberId || !(suppliedToken || sessionToken || currentStored.apiToken)) {
     throw new Error("Workspace home address, account, and API token are required.");
@@ -252,12 +254,15 @@ async function saveSettings(input) {
   if (!isUuid(memberId)) {
     throw new Error("Member ID must be the UUID from your Plane profile URL.");
   }
-  if (assigneeIds.some((id) => !isUuid(id))) {
-    throw new Error("Every selected member must have a valid Plane UUID.");
+  if ([...assigneeIds, ...memberOrder, ...projectOrder].some((id) => !isUuid(id))) {
+    throw new Error("Every saved member and project must have a valid Plane UUID.");
+  }
+  if (changeOnCheck && !checkTargetStateName) {
+    throw new Error("Choose the workflow state applied by the task checkmark.");
   }
 
   const stored = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     baseUrl,
     workspaceSlug,
     memberId,
@@ -265,7 +270,14 @@ async function saveSettings(input) {
     assigneeIds,
     projectIds,
     stateNames,
+    memberOrder,
+    projectOrder,
+    stateOrder,
     groupByProject,
+    groupByMember,
+    changeOnCheck,
+    checkTargetStateName,
+    completionSound,
     alwaysOnTop,
     refreshMinutes,
     theme,
@@ -277,7 +289,6 @@ async function saveSettings(input) {
     setupComplete: true
   };
   stored.apiToken = currentStored.apiToken;
-  stored.updateToken = currentStored.updateToken;
   if ((suppliedToken || (!stored.apiToken && sessionToken))
     && !await credentialEncryptionAvailable()) {
     throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the API token safely.");
@@ -285,31 +296,19 @@ async function saveSettings(input) {
   if (suppliedToken || (!stored.apiToken && sessionToken)) {
     stored.apiToken = (await encryptCredential(suppliedToken || sessionToken)).toString("base64");
   }
-  if (suppliedUpdateToken || (!stored.updateToken && sessionUpdateToken)) {
-    if (!await credentialEncryptionAvailable()) {
-      throw new Error("Secure credential storage is unavailable, so Plane Pin cannot save the update token safely.");
-    }
-    stored.updateToken = (await encryptCredential(suppliedUpdateToken || sessionUpdateToken)).toString("base64");
-  }
   stored.startAtLogin = setLoginStartup(startAtLogin);
   writeStoredSettings(stored);
   if (suppliedToken) sessionToken = suppliedToken;
-  if (suppliedUpdateToken) sessionUpdateToken = suppliedUpdateToken;
   credentialState = {
     tokenError: suppliedToken ? false : credentialState.tokenError,
     tokenUnavailable: suppliedToken ? false : credentialState.tokenUnavailable,
-    encryptedTokenPresent: Boolean(stored.apiToken),
-    updateTokenError: suppliedUpdateToken ? false : credentialState.updateTokenError,
-    updateTokenUnavailable: suppliedUpdateToken ? false : credentialState.updateTokenUnavailable,
-    encryptedUpdateTokenPresent: Boolean(stored.updateToken)
+    encryptedTokenPresent: Boolean(stored.apiToken)
   };
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   nativeTheme.themeSource = theme;
   refreshTray();
-  if (suppliedUpdateToken) updateManager?.check();
   return {
-    persistedToken: Boolean(stored.apiToken),
-    persistedUpdateToken: Boolean(stored.updateToken)
+    persistedToken: Boolean(stored.apiToken)
   };
 }
 
@@ -321,8 +320,6 @@ function publicSettings() {
     startAtLogin: loginStartup.enabled,
     loginStartupStatus: loginStartup.status,
     tokenSet: Boolean(sessionToken || credentialState.encryptedTokenPresent),
-    updateTokenSet: Boolean(sessionUpdateToken || credentialState.encryptedUpdateTokenPresent),
-    updateCredentialAvailable: Boolean(sessionUpdateToken || process.env.GH_TOKEN),
     platform: process.platform,
     trayLocation: trayLocationName(process.platform),
     appVersion: app.getVersion()
@@ -370,14 +367,14 @@ function handleTrayCommand(id) {
   }
   if (id === "always-on-top") {
     const alwaysOnTop = !normalizeStoredSettings(stored).alwaysOnTop;
-    writeStoredSettings({ ...stored, schemaVersion: 2, alwaysOnTop });
+    writeStoredSettings({ ...stored, schemaVersion: 3, alwaysOnTop });
     mainWindow?.setAlwaysOnTop(alwaysOnTop);
     sendTrayCommand("always-on-top");
     return refreshTray();
   }
   if (id === "compact-cards") {
     const compactCards = !normalizeStoredSettings(stored).compactCards;
-    writeStoredSettings({ ...stored, schemaVersion: 2, compactCards });
+    writeStoredSettings({ ...stored, schemaVersion: 3, compactCards });
     sendTrayCommand("compact-cards");
     return refreshTray();
   }
@@ -472,10 +469,6 @@ function createWindow({ showOnReady = true } = {}) {
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
-function configureUpdateCredential() {
-  if (sessionUpdateToken) process.env.GH_TOKEN = sessionUpdateToken;
-}
-
 function createUpdateService() {
   const supported = app.isPackaged && (process.platform !== "darwin" || macAutoUpdatesEnabled);
   const unsupportedMessage = app.isPackaged
@@ -486,8 +479,6 @@ function createUpdateService() {
     currentVersion: app.getVersion(),
     supported,
     unsupportedMessage,
-    hasCredential: () => Boolean(sessionUpdateToken || process.env.GH_TOKEN),
-    configureCredential: configureUpdateCredential,
     beforeInstall: () => {
       // quitAndInstall closes windows before Electron emits before-quit. Set this
       // first so close-to-tray cannot intercept the updater's restart.
@@ -517,7 +508,7 @@ ipcMain.handle("setup:discover", async (_event, input) => {
 });
 ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
   const alwaysOnTop = Boolean(enabled);
-  writeStoredSettings({ ...readStoredSettings(), schemaVersion: 2, alwaysOnTop });
+  writeStoredSettings({ ...readStoredSettings(), schemaVersion: 3, alwaysOnTop });
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
   refreshTray();
   return alwaysOnTop;
@@ -529,14 +520,14 @@ ipcMain.handle("settings:set-preference", (_event, key, value) => {
   const stored = readStoredSettings();
   if (key === "theme") {
     const theme = value === "dark" ? "dark" : "light";
-    writeStoredSettings({ ...stored, schemaVersion: 2, theme });
+    writeStoredSettings({ ...stored, schemaVersion: 3, theme });
     nativeTheme.themeSource = theme;
     mainWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
     return theme;
   }
   if (booleanPreferences.has(key)) {
     const next = Boolean(value);
-    writeStoredSettings({ ...stored, schemaVersion: 2, [key]: next });
+    writeStoredSettings({ ...stored, schemaVersion: 3, [key]: next });
     refreshTray();
     return next;
   }
@@ -586,6 +577,23 @@ ipcMain.handle("task:open", async (_event, taskUrl) => {
   }
   await shell.openExternal(url.toString());
 });
+ipcMain.handle("task:change-state", async (_event, input) => {
+  if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
+  const settings = loadSettings();
+  if (!settings.changeOnCheck || !settings.checkTargetStateName || !sessionToken) {
+    throw new Error("Turn on Change on check and choose a target state in Settings first.");
+  }
+  if (lastTaskRefs.get(String(input?.taskId || "")) !== String(input?.projectId || "")) {
+    throw new Error("Refresh the task list before changing this task.");
+  }
+  return updateTaskState({
+    ...settings,
+    apiToken: sessionToken,
+    projectId: input?.projectId,
+    taskId: input?.taskId,
+    stateName: settings.checkTargetStateName
+  });
+});
 ipcMain.handle("tasks:list", async () => {
   if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
   const settings = loadSettings();
@@ -596,6 +604,7 @@ ipcMain.handle("tasks:list", async () => {
   }
   const tasks = await fetchAssignedTasks({ ...settings, apiToken: sessionToken });
   lastTaskCount = tasks.length;
+  lastTaskRefs = new Map(tasks.map((task) => [String(task.id), String(task.project?.id || "")]));
   refreshTray();
   return tasks.map((task) => ({
     id: String(task.id),
@@ -611,6 +620,8 @@ ipcMain.handle("tasks:list", async () => {
     stateName: String(task.state?.name || "Unknown state"),
     stateGroup: String(task.state?.group || "unstarted"),
     stateColor: String(task.state?.color || ""),
+    assignees: taskAssignees(task),
+    projectId: String(task.project?.id || ""),
     projectName: String(task.project?.name || task.project?.identifier || "Project"),
     projectIdentifier: String(task.project?.identifier || ""),
     url: buildTaskUrl(settings.baseUrl, settings.workspaceSlug, task)

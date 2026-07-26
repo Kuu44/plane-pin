@@ -38,10 +38,10 @@ Windows first, used beside day-to-day work. macOS and Linux packages are built f
 - Opens task rows in Plane and refreshes automatically on a configurable interval.
 - Checks for releases at startup and provides an in-app download, install, and restart action where the packaged platform supports it.
 - Supports light and dark themes.
-- Read-only in the MVP.
+- Reads assigned work and can change a checked task to the configured workflow state.
 - Credentials must not be committed or exposed to the renderer.
-- Private release checks require a separately encrypted, read-only GitHub token until a public update feed exists.
-- Exact Plane API shape remains to be verified against the user's hosted version.
+- Release checks use the public GitHub feed and require no GitHub credential.
+- Task-state changes use Plane's documented work-item PATCH endpoint.
 
 ## Evidence on Hand
 

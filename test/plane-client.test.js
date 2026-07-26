@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl } = require("../src/plane-client");
+const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl, updateTaskState } = require("../src/plane-client");
 
 const projectA = { id: "00918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "MKTG", name: "Marketing" };
 const projectB = { id: "10918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "ENG", name: "Engineering" };
@@ -212,4 +212,37 @@ test("builds the browser URL used by Plane work items", () => {
     }),
     "https://plane.example.com/engineering/browse/MKTG-17/"
   );
+});
+
+test("changes a work item using the target project's matching state UUID", async () => {
+  const taskId = "40918ea1-52f7-48bd-abe3-d3efe76ff7dd";
+  let patch;
+  const request = async (url, options = {}) => {
+    if (url.pathname.endsWith("/states/")) {
+      return {
+        ok: true,
+        json: async () => [
+          { id: "50918ea1-52f7-48bd-abe3-d3efe76ff7dd", name: "Done", group: "completed" }
+        ]
+      };
+    }
+    patch = { url, options };
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const result = await updateTaskState({
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "engineering",
+    projectId: projectA.id,
+    taskId,
+    stateName: "Done",
+    apiToken: "secret"
+  }, request);
+
+  assert.equal(patch.options.method, "PATCH");
+  assert.deepEqual(JSON.parse(patch.options.body), {
+    state: "50918ea1-52f7-48bd-abe3-d3efe76ff7dd"
+  });
+  assert.match(patch.url.pathname, new RegExp(`${projectA.id}/work-items/${taskId}/$`));
+  assert.equal(result.stateGroup, "completed");
 });

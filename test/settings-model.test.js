@@ -27,7 +27,7 @@ test("migrates legacy all-project and all-state settings without narrowing tasks
   assert.equal(settings.stateNames, null);
   assert.equal(settings.refreshMinutes, 5);
   assert.equal(settings.theme, "light");
-  assert.equal(settings.schemaVersion, 2);
+  assert.equal(settings.schemaVersion, 3);
 });
 
 test("migrates legacy single-project and selected-state settings", () => {
@@ -113,27 +113,48 @@ test("recovers a decryptable token from backup without replacing newer preferenc
   assert.equal(loaded.tokenError, false);
 });
 
-test("recovers the private update token independently from the Plane token", async () => {
-  const loaded = await loadStoredSettings([
-    { apiToken: "plane-primary", updateToken: "broken-update" },
-    { updateToken: "valid-update" }
-  ], (encrypted) => {
-    if (encrypted === "broken-update") throw new Error("decrypt failed");
-    return `${encrypted}-decrypted`;
-  });
-
-  assert.equal(loaded.token, "plane-primary-decrypted");
-  assert.equal(loaded.updateToken, "valid-update-decrypted");
-  assert.equal(loaded.updateTokenSourceIndex, 1);
-  assert.equal(loaded.updateTokenError, false);
-});
-
 test("keeps a temporarily unavailable Linux keyring credential instead of asking for it again", async () => {
   const loaded = await loadStoredSettings({ apiToken: "still-encrypted" }, async () => {
     throw new Error("safeStorage.asyncDecryptString is temporarily unavailable. Please try again.");
   });
 
   assert.equal(loaded.encryptedTokenPresent, true);
+  assert.equal(loaded.encryptedToken, "still-encrypted");
   assert.equal(loaded.tokenUnavailable, true);
   assert.equal(loaded.tokenError, false);
+});
+
+test("public updates no longer load the legacy GitHub credential", async () => {
+  const decrypted = [];
+  const loaded = await loadStoredSettings({
+    apiToken: "plane-encrypted",
+    updateToken: "legacy-github-encrypted"
+  }, async (value) => {
+    decrypted.push(value);
+    return "plane-token";
+  });
+
+  assert.deepEqual(decrypted, ["plane-encrypted"]);
+  assert.equal(loaded.token, "plane-token");
+  assert.equal("updateToken" in loaded, false);
+});
+
+test("persists ordering, member grouping, and completion defaults safely", () => {
+  const settings = normalizeStoredSettings({
+    schemaVersion: 3,
+    memberOrder: ["member-b", "member-a", "member-b"],
+    projectOrder: ["project-b", "project-a"],
+    stateOrder: ["Done", "In Progress"],
+    groupByMember: true,
+    changeOnCheck: true,
+    checkTargetStateName: "Done"
+  });
+
+  assert.deepEqual(settings.memberOrder, ["member-b", "member-a"]);
+  assert.deepEqual(settings.projectOrder, ["project-b", "project-a"]);
+  assert.deepEqual(settings.stateOrder, ["Done", "In Progress"]);
+  assert.equal(settings.groupByMember, true);
+  assert.equal(settings.changeOnCheck, true);
+  assert.equal(settings.checkTargetStateName, "Done");
+  assert.equal(settings.completionSound, true);
 });

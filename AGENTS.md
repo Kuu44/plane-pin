@@ -35,7 +35,7 @@ Before a version can reach `master`:
 
 - Keep the Electron app ID `com.niyalo.planepin` unchanged; Windows uses it to recognize upgrades.
 - Keep user settings under Electron's `userData` directory. Do not move or delete them during upgrades.
-- Never commit Plane tokens, GitHub tokens, `.env` files, or other credentials.
+- Never commit Plane tokens, `.env` files, or other credentials.
 - Plane tokens must remain in Electron's main process and use `safeStorage`.
-- Automatic updates for the private GitHub repository require a user-supplied `GH_TOKEN`. Never embed that token in the app.
+- Automatic updates use the public GitHub release feed and must not require or store a GitHub token.
 

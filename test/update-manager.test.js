@@ -16,30 +16,25 @@ function fakeUpdater() {
   return updater;
 }
 
-test("a private feed never checks without a credential", async () => {
+test("a public feed checks without a credential", async () => {
   const updater = fakeUpdater();
   const manager = createUpdateManager({
     updater,
     currentVersion: "0.11.0",
-    supported: true,
-    hasCredential: () => false,
-    configureCredential: () => assert.fail("must not configure without a credential")
+    supported: true
   });
 
-  assert.equal((await manager.check()).status, "auth-required");
-  assert.equal(updater.checks, 0);
+  assert.equal((await manager.check()).status, "checking");
+  assert.equal(updater.checks, 1);
 });
 
 test("the update button downloads, installs, and restarts in one flow", async () => {
   const updater = fakeUpdater();
-  let configured = 0;
   let prepared = 0;
   const manager = createUpdateManager({
     updater,
     currentVersion: "0.11.0",
     supported: true,
-    hasCredential: () => true,
-    configureCredential: () => { configured += 1; },
     beforeInstall: () => { prepared += 1; },
     defer: (callback) => callback()
   });
@@ -52,7 +47,6 @@ test("the update button downloads, installs, and restarts in one flow", async ()
   updater.emit("update-downloaded", { version: "0.12.0" });
   await install;
 
-  assert.equal(configured, 1);
   assert.equal(updater.checks, 1);
   assert.equal(updater.downloads, 1);
   assert.equal(prepared, 1);
@@ -66,9 +60,7 @@ test("unsupported builds explain the platform block without contacting a feed", 
     updater,
     currentVersion: "0.11.0",
     supported: false,
-    unsupportedMessage: "Automatic macOS updates need a signed and notarised build.",
-    hasCredential: () => true,
-    configureCredential: () => {}
+    unsupportedMessage: "Automatic macOS updates need a signed and notarised build."
   });
 
   const state = await manager.check();
