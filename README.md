@@ -19,7 +19,7 @@ Plane Pin normally identifies the token owner automatically. Older self-hosted v
 
 The token is handled only by Electron's main process and persisted with Electron `safeStorage` when OS encryption is available.
 
-Onboarding appears only when no completed setup exists. The separate Settings dialog remains available afterward and can change the connection, task filters, grouping, refresh interval, theme, card density, priority appearance, and window behavior. Task rows open their Plane issue in the default browser, show the configured estimate when one exists, and refresh every five minutes by default.
+Onboarding appears only when no completed setup exists. The separate, movable Settings window remains available afterward and automatically saves valid connection, filter, grouping, refresh, theme, card-density, priority, and window changes. Layout changes update the visible rail before Plane refreshes in the background. Task rows open their Plane issue in the default browser, show the configured estimate when one exists, and refresh every five minutes by default.
 
 For a workspace Home address such as `https://plane.example.com/engineering/`, setup detects:
 
@@ -41,6 +41,12 @@ On macOS, Plane Pin uses the native traffic-light controls. They disappear with 
 Settings → Appearance → **Compact cards** reduces each row to the task name, estimate, and state icon, dropping the identifier, state label, due date, and link arrow. Roughly twice as many tasks fit in the same window height. The setting is also on the tray menu, and project headings still follow the separate **Group by project** preference.
 
 **Priority appearance** defaults to a small urgency-colored dot. Choose **Card gradient** to tint the task row instead; the preference applies to full and compact cards.
+
+## Task checkmarks
+
+Onboarding and Settings can assign a next state to every workflow state, such as Backlog → Todo → In Progress → In Review → Done. Choose **No change** for any state that should not expose a checkmark.
+
+After Plane confirms a change, the card draws its checkmark and shows the old state moving into the new one. Moves to In Review or a completed state also launch realistic confetti from the click across that monitor; particles remain visible until they fall below the screen. Every change keeps its eight-second Undo action.
 
 ## Keyboard shortcuts
 

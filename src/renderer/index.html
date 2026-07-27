@@ -262,6 +262,24 @@
 
           <section class="setup-step" data-step="6" hidden>
             <div class="step-copy">
+              <h3>What should a checkmark do?</h3>
+              <p>Choose the next state for each workflow step. The final state can have no action.</p>
+            </div>
+            <label class="preference-row">
+              <span><strong>Change state on check</strong><small>Show a checkmark on tasks that have a configured next state.</small></span>
+              <input id="setup-change-on-check" type="checkbox" checked>
+            </label>
+            <div id="setup-check-options" class="conditional-options">
+              <div id="setup-transition-options" class="state-mapping-list"></div>
+              <label class="preference-row">
+                <span><strong>Party sound</strong><small>Celebrate moves to In Review and completed states.</small></span>
+                <input id="setup-completion-sound" type="checkbox" checked>
+              </label>
+            </div>
+          </section>
+
+          <section class="setup-step" data-step="7" hidden>
+            <div class="step-copy">
               <h3>Make the rail yours</h3>
               <p>These defaults and every connection value can be changed later in Settings.</p>
             </div>
@@ -367,12 +385,10 @@
                 <input id="settings-change-on-check" type="checkbox">
               </label>
               <div id="settings-check-options" class="conditional-options" hidden>
-                <label class="field-label" for="settings-check-target-state">
-                  Change checked tasks to
-                  <select id="settings-check-target-state"></select>
-                </label>
+                <p class="mapping-help">Choose the next state for every workflow state. Tasks with “No change” do not show a checkmark.</p>
+                <div id="settings-transition-options" class="state-mapping-list"></div>
                 <label class="preference-row">
-                  <span><strong>Party sound</strong><small>Play a short celebration after Plane confirms the change.</small></span>
+                  <span><strong>Party sound</strong><small>Celebrate moves to In Review and completed states.</small></span>
                   <input id="settings-completion-sound" type="checkbox">
                 </label>
               </div>
@@ -462,14 +478,15 @@
 
         <p id="settings-error" class="form-error" role="alert"></p>
         <footer class="dialog-actions settings-actions">
-          <button id="settings-cancel" class="secondary-button" type="button">Cancel</button>
-          <button id="settings-save" class="primary-button" type="submit">Save changes</button>
+          <p id="settings-save-status" role="status" aria-live="polite">Changes save automatically.</p>
+          <button id="settings-save" class="secondary-button" type="button">Close</button>
         </footer>
       </form>
     </dialog>
 
     <script src="./drag-model.js"></script>
     <script src="./task-layout.js"></script>
+    <script src="./completion-model.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

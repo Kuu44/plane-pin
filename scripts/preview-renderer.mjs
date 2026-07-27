@@ -53,8 +53,8 @@ const tasks = [
   url: "https://plane.example.com/engineering/browse/" + identifier
 }));
 
-async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
-  const page = await browser.newPage({ viewport: { width: 380, height: 650 } });
+async function open(browser, { compactCards, theme, priorityStyle = "dot", view = "tasks" }) {
+  const page = await browser.newPage({ viewport: view === "settings" ? { width: 560, height: 760 } : { width: 380, height: 650 } });
   page.on("console", (message) => {
     if (message.type() === "error") console.error(`renderer console: ${message.text()}`);
   });
@@ -62,7 +62,7 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
   await page.addInitScript(
     ({ tasks, compactCards, theme, priorityStyle, packageVersion }) => {
       const settings = {
-        schemaVersion: 3,
+        schemaVersion: 4,
         baseUrl: "https://plane.example.com",
         workspaceSlug: "engineering",
         memberId: "94cf0210-9909-4f77-b24e-14b2988156e5",
@@ -76,7 +76,13 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         groupByProject: true,
         groupByMember: false,
         changeOnCheck: true,
-        checkTargetStateName: "Done",
+        checkStateMappings: [
+          { source: "In Progress", target: "In Review" },
+          { source: "In Review", target: "Done" },
+          { source: "Todo", target: "In Progress" },
+          { source: "Done", target: "" }
+        ],
+        checkTargetStateName: "",
         completionSound: true,
         collapsedGroupKeys: [],
         alwaysOnTop: true,
@@ -97,7 +103,12 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
       };
       window.planePin = {
         getSettings: async () => ({ ...settings }),
-        saveSettings: async () => ({ persistedToken: true }),
+        saveSettings: async (next) => {
+          Object.assign(settings, next);
+          return { persistedToken: true };
+        },
+        openSettingsWindow: async () => true,
+        closeSettingsWindow: async () => true,
         discoverWorkspace: async () => ({
           member: { id: "94cf0210-9909-4f77-b24e-14b2988156e5", name: "Kuu" },
           members: [
@@ -111,6 +122,7 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
               name: "Engineering",
               states: [
                 { id: "state-progress", name: "In Progress", group: "started", color: "#f59e0b" },
+                { id: "state-review", name: "In Review", group: "started", color: "#8b5cf6" },
                 { id: "state-done", name: "Done", group: "completed", color: "#46a758" }
               ]
             },
@@ -136,24 +148,27 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         endWindowDrag: async () => true,
         openTask: async () => {},
         changeTaskState: async (task) => ({
-          stateName: "Done",
-          stateGroup: "completed",
-          stateColor: "#46a758",
+          stateName: "In Review",
+          stateGroup: "started",
+          stateColor: "#8b5cf6",
           undoToken: { taskId: task.id, previousStateId: "state-progress" }
         }),
         undoTaskState: async () => ({ stateName: "In Progress", stateGroup: "started", stateColor: "#f59e0b" }),
+        celebrateAt: async () => true,
+        finishCelebration: () => {},
         listTasks: async () => tasks,
         getUpdateState: async () => ({ status: "up-to-date", currentVersion: packageVersion }),
         checkForUpdates: async () => ({ status: "up-to-date", currentVersion: packageVersion }),
         installUpdate: async () => ({ status: "installing", currentVersion: packageVersion }),
         onTrayCommand: () => {},
-        onUpdateState: () => {}
+        onUpdateState: () => {},
+        onSettingsChanged: () => {}
       };
     },
     { tasks, compactCards, theme, priorityStyle, packageVersion }
   );
-  await page.goto(page_url);
-  await page.waitForSelector(".task-card");
+  await page.goto(`${page_url}${view === "settings" ? "?view=settings" : ""}`);
+  await page.waitForSelector(view === "settings" ? "#settings-dialog[open]" : ".task-card");
   const horizontalOverflow = await page.evaluate(
     () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth
   );
@@ -185,6 +200,10 @@ for (const theme of ["light", "dark"]) {
       await page.hover(".task-item");
       await page.screenshot({ path: path.join(outputDir, "light-check-hover.png") });
       shots.push("light-check-hover.png");
+      await page.click(".complete-task");
+      await page.waitForTimeout(900);
+      await page.screenshot({ path: path.join(outputDir, "light-state-transition.png") });
+      shots.push("light-state-transition.png");
     }
 
     if (compactCards) {
@@ -219,9 +238,7 @@ async function captureReorderMarker(page, containerSelector, name) {
   await page.mouse.up();
 }
 
-const settingsPage = await open(browser, { compactCards: true, theme: "light" });
-await settingsPage.setViewportSize({ width: 560, height: 760 });
-await settingsPage.click("#settings-open");
+const settingsPage = await open(browser, { compactCards: true, theme: "light", view: "settings" });
 await settingsPage.waitForTimeout(300);
 await captureReorderMarker(settingsPage, "#settings-member-options", "settings-member-reorder.png");
 await captureReorderMarker(settingsPage, "#settings-project-options", "settings-project-reorder.png");
@@ -232,7 +249,9 @@ await settingsPage.evaluate(() => {
 await settingsPage.waitForTimeout(200);
 await settingsPage.screenshot({ path: path.join(outputDir, "settings-task-order.png") });
 shots.push("settings-task-order.png");
-await settingsPage.check("#settings-change-on-check");
+if (!await settingsPage.isChecked("#settings-change-on-check")) {
+  await settingsPage.check("#settings-change-on-check");
+}
 await settingsPage.evaluate(() => {
   document.querySelector(".completion-block").scrollIntoView({ block: "center" });
 });

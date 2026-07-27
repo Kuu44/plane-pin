@@ -7,6 +7,8 @@ const trayCommands = new Set(["refresh", "settings", "always-on-top", "compact-c
 contextBridge.exposeInMainWorld("planePin", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
+  openSettingsWindow: () => ipcRenderer.invoke("window:open-settings"),
+  closeSettingsWindow: () => ipcRenderer.invoke("window:close-settings"),
   discoverWorkspace: (settings) => ipcRenderer.invoke("setup:discover", settings),
   setAlwaysOnTop: (enabled) => ipcRenderer.invoke("window:set-always-on-top", enabled),
   setPreference: (key, value) => ipcRenderer.invoke("settings:set-preference", key, value),
@@ -20,12 +22,17 @@ contextBridge.exposeInMainWorld("planePin", {
   openTask: (url) => ipcRenderer.invoke("task:open", url),
   changeTaskState: (taskId, projectId) => ipcRenderer.invoke("task:change-state", { taskId, projectId }),
   undoTaskState: (undoToken) => ipcRenderer.invoke("task:undo-state", { undoToken }),
+  celebrateAt: (screenX, screenY) => ipcRenderer.invoke("celebration:show", { screenX, screenY }),
+  finishCelebration: () => ipcRenderer.send("celebration:complete"),
   listTasks: () => ipcRenderer.invoke("tasks:list"),
   getUpdateState: () => ipcRenderer.invoke("update:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),
   installUpdate: () => ipcRenderer.invoke("update:install"),
   onUpdateState: (handler) => {
     ipcRenderer.on("update:state", (_event, state) => handler(state));
+  },
+  onSettingsChanged: (handler) => {
+    ipcRenderer.on("settings:changed", (_event, settings) => handler(settings));
   },
   onTrayCommand: (handler) => {
     ipcRenderer.on("tray:command", (_event, command) => {

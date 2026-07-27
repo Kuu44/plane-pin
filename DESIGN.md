@@ -171,11 +171,11 @@ Controls use gently rounded corners (7–10px); dialogs use 14px. Task rows rema
 - **Compact task row:** the same row at 7px vertical padding, with a one-line name, optional estimate badge, and unboxed state mark at the right edge. It never shows the external-link arrow and uses the selected dot or gradient priority treatment.
 - **Tray icon:** the app mark as a water-blue chip on Windows and Linux, and a black template image on macOS so the system tints it for the active menu bar. Its menu names the platform's own surface — notification area, menu bar, or system tray — and always ends in a real exit.
 - **Input:** cool neutral field with a 1px divider-colored border and water-blue focus state.
-- **Onboarding:** a seven-view progressive dialog with separate member, project, and workflow-state choices that performs real connection setup and ends at the first loaded task list.
-- **Settings:** a separate persistent dialog for every connection, filter, refresh, theme, and window preference.
+- **Onboarding:** an eight-view progressive dialog with separate member, project, workflow-state, and checkmark-progression choices that performs real connection setup and ends at the first loaded task list.
+- **Settings:** a separate movable native window for every connection, filter, refresh, theme, and window preference. Valid changes save automatically and update the cached rail before a background refresh.
 - **Update row:** one plain status sentence and one contextual action. Progress appears only while downloading; credential and platform limitations remain explicit.
 - **Filter chooser:** flat member, project, and state rows with consistent spacing, full-row reorder previews, and Select all and Select none actions.
-- **Completion action:** a right-edge check control with one restrained hover halo; success creates a reversible toast instead of immediately removing context.
+- **Completion action:** a right-edge check control with one restrained hover halo. Success draws the mark, hands the previous state into the configured next state, and creates a reversible toast. In Review and completed targets add a gravity-driven, click-origin monitor celebration.
 
 ## Do's and Don'ts
 

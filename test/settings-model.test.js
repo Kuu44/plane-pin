@@ -27,7 +27,7 @@ test("migrates legacy all-project and all-state settings without narrowing tasks
   assert.equal(settings.stateNames, null);
   assert.equal(settings.refreshMinutes, 5);
   assert.equal(settings.theme, "light");
-  assert.equal(settings.schemaVersion, 3);
+  assert.equal(settings.schemaVersion, 4);
 });
 
 test("migrates legacy single-project and selected-state settings", () => {
@@ -148,6 +148,13 @@ test("persists ordering, member grouping, and completion defaults safely", () =>
     collapsedGroupKeys: ["member:member-a", "project:member-a:project-a", "member:member-a"],
     groupByMember: true,
     changeOnCheck: true,
+    checkStateMappings: [
+      { source: "Backlog", target: "Todo" },
+      { source: "Todo", target: "In Progress" },
+      { source: "Todo", target: "Done" },
+      { source: "Done", target: "" },
+      { source: "Cancelled", target: "Cancelled" }
+    ],
     checkTargetStateName: "Done"
   });
 
@@ -157,6 +164,11 @@ test("persists ordering, member grouping, and completion defaults safely", () =>
   assert.deepEqual(settings.collapsedGroupKeys, ["member:member-a", "project:member-a:project-a"]);
   assert.equal(settings.groupByMember, true);
   assert.equal(settings.changeOnCheck, true);
+  assert.deepEqual(settings.checkStateMappings, [
+    { source: "Backlog", target: "Todo" },
+    { source: "Todo", target: "In Progress" },
+    { source: "Done", target: "" }
+  ]);
   assert.equal(settings.checkTargetStateName, "Done");
   assert.equal(settings.completionSound, true);
 });
