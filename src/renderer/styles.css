@@ -904,12 +904,12 @@ input[type="checkbox"]:checked {
   z-index: 4;
   right: 6px;
   left: 6px;
-  height: 2px;
+  height: 3px;
   border-radius: 2px;
   background: #ffffff;
   box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--accent) 48%, transparent),
+    0 0 8px color-mix(in srgb, var(--accent) 64%, transparent);
   content: "";
   pointer-events: none;
 }

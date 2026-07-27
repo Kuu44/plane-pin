@@ -380,6 +380,8 @@ function clearReorderMarkers(container) {
   }
 }
 
+let activeReorderValue = null;
+
 function commitReorder(row, next, value, label, onReorder, restoreFocus) {
   const container = row.parentElement;
   const previousPositions = new Map(
@@ -440,6 +442,7 @@ function addReorderHandle(row, value, label, orderedValues, onReorder) {
   });
   handle.addEventListener("click", (event) => event.preventDefault());
   handle.addEventListener("dragstart", (event) => {
+    activeReorderValue = value;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", value);
     const bounds = row.getBoundingClientRect();
@@ -451,17 +454,18 @@ function addReorderHandle(row, value, label, orderedValues, onReorder) {
     row.classList.add("is-dragging");
   });
   handle.addEventListener("dragend", () => {
+    activeReorderValue = null;
     row.classList.remove("is-dragging");
     clearReorderMarkers(row.parentElement);
   });
   row.addEventListener("dragover", (event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    const dragged = event.dataTransfer.getData("text/plain");
+    const dragged = activeReorderValue;
+    clearReorderMarkers(row.parentElement);
     if (!dragged || dragged === value) return;
     const bounds = row.getBoundingClientRect();
     const position = event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
-    clearReorderMarkers(row.parentElement);
     row.classList.add(position === "before" ? "drop-before" : "drop-after");
     row.dataset.dropPosition = position;
   });
@@ -473,7 +477,7 @@ function addReorderHandle(row, value, label, orderedValues, onReorder) {
   });
   row.addEventListener("drop", (event) => {
     event.preventDefault();
-    const dragged = event.dataTransfer.getData("text/plain");
+    const dragged = event.dataTransfer.getData("text/plain") || activeReorderValue;
     const next = dropOrderedValue(orderedValues, dragged, value, row.dataset.dropPosition);
     if (next.every((item, index) => item === orderedValues[index])) return;
     const draggedRow = [...row.parentElement.querySelectorAll(".selection-row")]

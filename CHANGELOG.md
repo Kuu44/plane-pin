@@ -6,6 +6,18 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-07-27
+
+### Changed
+
+- Refreshed Impeccable's design metadata to match the implemented light and dark water-blue palette, typography, component states, and current task interactions.
+- Upgraded the release workflow to GitHub Actions that run on Node.js 24, and moved release builds to Node.js 24.
+
+### Fixed
+
+- Added a reproducible local renderer screenshot command that uses an installed Chrome or Edge browser when available and gives exact setup guidance when no compatible browser is present.
+- Restored the live white insertion line while dragging members, projects, or workflow states, including correct clearing when the pointer returns to the dragged row.
+
 ## [0.13.0] - 2026-07-26
 
 ### Added
@@ -234,7 +246,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Added direct task links, keyboard-accessible controls, visible focus, and reduced-motion support.
 - Added the first Windows NSIS installer and Plane API tests.
 
-[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/Kuu44/plane-pin/compare/v0.13.0...v0.13.1
 [0.6.0]: https://github.com/Kuu44/plane-pin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Kuu44/plane-pin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Kuu44/plane-pin/compare/v0.3.1...v0.4.0

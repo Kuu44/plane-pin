@@ -1,6 +1,6 @@
 {
   "name": "plane-pin",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "A compact desktop companion for your assigned Plane tasks.",
   "repository": "https://github.com/Kuu44/plane-pin",
   "main": "src/main.js",
@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "preview:renderer": "node scripts/preview-renderer.mjs .artifacts/renderer-preview",
     "dist:win": "electron-builder --win nsis --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:linux": "electron-builder --linux --publish never",
@@ -82,7 +83,8 @@
   },
   "devDependencies": {
     "electron": "^42.7.1",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "playwright": "^1.55.0"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"

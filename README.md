@@ -62,6 +62,14 @@ npm.cmd run release:win
 
 Commit source changes before running the release command. It tests and packages the app, then replaces `builds/` with the current version's installer, source archive, and updater metadata.
 
+For a renderer screenshot pass without a live Plane account:
+
+```powershell
+npm.cmd run preview:renderer
+```
+
+The preview uses an installed Chrome or Edge browser when available and writes ignored images to `.artifacts/renderer-preview`. If neither is installed, run `npm.cmd exec playwright install chromium` once.
+
 macOS and Linux packages are not built on Windows and are not committed to `builds/`. Pushing a version tag builds them on GitHub-hosted macOS and Ubuntu runners and attaches them to that version's GitHub Release:
 
 The same workflow can be run manually on `master` to verify both packages without publishing a release.

@@ -22,7 +22,7 @@ Before a version can reach `master`:
 2. Run `npm.cmd test`.
 3. Commit the source changes.
 4. Run `npm.cmd run release:win`.
-5. Verify the installer upgrades the previous installed version without losing settings.
+5. Do not install the candidate on Kuu's machine. Verify updater metadata statically, publish the release, and leave the installed version untouched for Kuu's in-app auto-update test.
 6. Commit the generated `builds/` files.
 7. From the clean `master` worktree, run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/merge-release.ps1 -Branch <branch>`.
 8. Confirm the merge commit subject is `vX.Y.Z`, its body matches that changelog entry, and the matching tag exists.
