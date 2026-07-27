@@ -231,7 +231,11 @@ async function fetchAssignedTasks(config, request = fetch) {
       fetchEstimatePoints(baseUrl, workspace, project.id, config.apiToken, request)
     ]);
     const statesById = new Map(states.map((state) => [String(state.id), state]));
-    const estimatePointsById = new Map(estimatePoints.map((point) => [String(point.id), point]));
+    const estimatePointsById = new Map();
+    for (const point of estimatePoints) {
+      if (point?.id !== undefined) estimatePointsById.set(String(point.id), point);
+      if (point?.key !== undefined) estimatePointsById.set(String(point.key), point);
+    }
     return tasks
       .map((task) => {
         const state = typeof task.state === "object" && task.state

@@ -3,6 +3,7 @@
 const validRefreshMinutes = new Set([0, 1, 5, 10, 15, 30]);
 const validThemes = new Set(["light", "dark"]);
 const validPriorityStyles = new Set(["dot", "gradient"]);
+const { cleanStateMappings } = require("./renderer/completion-model");
 
 function cleanStrings(value, limit = 100) {
   if (!Array.isArray(value)) return [];
@@ -27,7 +28,7 @@ function normalizeStoredSettings(stored = {}) {
       ? cleanStateNames(stored.stateNames)
       : null;
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     baseUrl: String(stored.baseUrl || ""),
     workspaceSlug: String(stored.workspaceSlug || ""),
     memberId: String(stored.memberId || ""),
@@ -44,6 +45,7 @@ function normalizeStoredSettings(stored = {}) {
     groupByProject: stored.groupByProject !== false,
     groupByMember: stored.groupByMember === true,
     changeOnCheck: stored.changeOnCheck === true,
+    checkStateMappings: cleanStateMappings(stored.checkStateMappings),
     checkTargetStateName: String(stored.checkTargetStateName || "").trim().slice(0, 100),
     completionSound: stored.completionSound !== false,
     alwaysOnTop: stored.alwaysOnTop !== false,

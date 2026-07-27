@@ -38,7 +38,7 @@ Windows first, used beside day-to-day work. macOS and Linux packages are built f
 - Opens task rows in Plane and refreshes automatically on a configurable interval.
 - Checks for releases at startup and provides an in-app download, install, and restart action where the packaged platform supports it.
 - Supports light and dark themes.
-- Reads assigned work and can change a checked task to the configured workflow state.
+- Reads assigned work and can change a checked task through a configured per-state workflow progression.
 - Credentials must not be committed or exposed to the renderer.
 - Release checks use the public GitHub feed and require no GitHub credential.
 - Task-state changes use Plane's documented work-item PATCH endpoint.
@@ -53,7 +53,7 @@ No logo or product assets were supplied. Prior project context identifies a self
 - Read-only before mutating.
 - Credentials stay in the desktop main process.
 - Native desktop behavior over web-app ceremony.
-- One onboarding flow for first launch; one persistent Settings surface afterward.
+- One onboarding flow for first launch; one movable, autosaving native Settings window afterward.
 - One versioned settings format and canonical storage path across upgrades.
 
 ## Accessibility & Inclusion

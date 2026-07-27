@@ -89,6 +89,7 @@ test("resolves configured estimate labels and preserves legacy numeric estimates
       ok: true,
       json: async () => [
         { id: "labelled", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: estimatePointId },
+        { id: "keyed", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: 2 },
         { id: "legacy", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: 3 },
         { id: "unknown", state: "state-active", assignees: [{ id: "member-a" }], estimate_point: "40918ea1-52f7-48bd-abe3-d3efe76ff7dd" }
       ]
@@ -104,7 +105,7 @@ test("resolves configured estimate labels and preserves legacy numeric estimates
     apiToken: "secret"
   }, request);
 
-  assert.deepEqual(tasks.map((task) => task.estimateLabel), ["M", "3", ""]);
+  assert.deepEqual(tasks.map((task) => task.estimateLabel), ["M", "M", "3", ""]);
 });
 
 test("skips projects Plane explicitly marks inaccessible", async () => {

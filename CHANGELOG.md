@@ -6,6 +6,24 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-27
+
+### Added
+
+- Added per-workflow-state checkmark actions in onboarding and Settings, with sensible next-state defaults and an explicit No change option for terminal or excluded states.
+- Added a two-second state handoff that draws the checkmark, shows the previous and next states, and celebrates moves to In Review or completed states.
+- Added a realistic, click-origin confetti overlay that spans the clicked monitor and keeps every particle visible until gravity carries it below the display.
+
+### Changed
+
+- Settings now opens as an independently movable native window and saves valid changes automatically.
+- Appearance, filtering, grouping, and ordering changes update the cached task rail before the background Plane refresh runs.
+
+### Fixed
+
+- Removed the blurred Settings backdrop by moving Settings out of the task window.
+- Configured T-shirt estimates now resolve when Plane returns a numeric estimate key instead of an estimate-point UUID.
+
 ## [0.13.1] - 2026-07-27
 
 ### Changed

@@ -8,6 +8,13 @@ const {
   moveOrderedValue,
   orderItems: orderedItems
 } = window.planePinTaskLayout;
+const {
+  defaultStateMappings,
+  shouldCelebrateTransition,
+  targetForState
+} = window.planePinCompletion;
+const settingsView = new URLSearchParams(location.search).get("view") === "settings";
+document.body.dataset.view = settingsView ? "settings" : "tasks";
 const elements = {
   updateToolbar: $("#update-toolbar"),
   pinToggle: $("#pin-toggle"),
@@ -48,14 +55,18 @@ const elements = {
   stateOptions: $("#state-options"),
   stateSelectAll: $("#state-select-all"),
   stateSelectNone: $("#state-select-none"),
+  setupChangeOnCheck: $("#setup-change-on-check"),
+  setupCheckOptions: $("#setup-check-options"),
+  setupTransitionOptions: $("#setup-transition-options"),
+  setupCompletionSound: $("#setup-completion-sound"),
   groupByProject: $("#group-by-project"),
   preferOnTop: $("#prefer-on-top"),
   settingsDialog: $("#settings-dialog"),
   settingsBody: $(".settings-body"),
   settingsForm: $("#settings-form"),
   settingsClose: $("#settings-close"),
-  settingsCancel: $("#settings-cancel"),
   settingsSave: $("#settings-save"),
+  settingsSaveStatus: $("#settings-save-status"),
   settingsError: $("#settings-error"),
   settingsPlaneUrl: $("#settings-plane-url"),
   settingsToken: $("#settings-token"),
@@ -77,7 +88,7 @@ const elements = {
   reorderStatus: $("#reorder-status"),
   settingsChangeOnCheck: $("#settings-change-on-check"),
   settingsCheckOptions: $("#settings-check-options"),
-  settingsCheckTargetState: $("#settings-check-target-state"),
+  settingsTransitionOptions: $("#settings-transition-options"),
   settingsCompletionSound: $("#settings-completion-sound"),
   settingsGroupProject: $("#settings-group-project"),
   settingsGroupMember: $("#settings-group-member"),
@@ -105,9 +116,10 @@ const stepTitles = [
   "Choose whose tasks appear",
   "Choose your projects",
   "Filter by workflow state",
+  "Set up task checkmarks",
   "Your viewing preferences"
 ];
-const stepActions = ["Get started", "Continue", "Test connection", "Continue", "Continue", "Continue", "Save and show my tasks"];
+const stepActions = ["Get started", "Continue", "Test connection", "Continue", "Continue", "Continue", "Continue", "Save and show my tasks"];
 const stateGroupLabels = {
   backlog: "Backlog",
   unstarted: "Not started",
@@ -141,13 +153,18 @@ let connectionDraft = { baseUrl: "", workspaceSlug: "" };
 let draftAssigneeIds;
 let draftProjectIds;
 let draftStateNames;
+let draftCheckStateMappings = [];
 let settingsDraftAssigneeIds;
 let settingsDraftProjectIds;
 let settingsDraftStateNames;
 let settingsDraftMemberOrder;
 let settingsDraftProjectOrder;
 let settingsDraftStateOrder;
+let settingsDraftCheckStateMappings = [];
 let settingsScrollTop = 0;
+let settingsSaveTimer;
+let settingsSaveInFlight = false;
+let settingsSaveAgain = false;
 const windowDrag = window.planePinDrag.createDragTracker();
 let suppressNextClick = false;
 let dragFrame = 0;
@@ -574,6 +591,62 @@ function renderStateRows(container, states, selectedNames, onChange, reorder = n
   container.replaceChildren(...rows);
 }
 
+function resolvedStateMappings(states, mappings, order) {
+  const ordered = orderedItems(states, order, (state) => state.name);
+  const available = new Set(ordered.map((state) => state.name.toLocaleLowerCase()));
+  const current = new Map((mappings || [])
+    .filter((mapping) => available.has(String(mapping.source).toLocaleLowerCase()))
+    .map((mapping) => [String(mapping.source).toLocaleLowerCase(), {
+      source: String(mapping.source),
+      target: available.has(String(mapping.target).toLocaleLowerCase()) ? String(mapping.target) : ""
+    }]));
+  const defaults = defaultStateMappings(ordered, ordered.map((state) => state.name));
+  const useDefaults = current.size === 0;
+  return ordered.map((state) => current.get(state.name.toLocaleLowerCase())
+    || (useDefaults
+      ? defaults.find((mapping) => mapping.source === state.name)
+      : { source: state.name, target: "" }));
+}
+
+function renderStateMappings(container, states, mappings, order, onChange) {
+  const ordered = orderedItems(states, order, (state) => state.name);
+  const resolved = resolvedStateMappings(ordered, mappings, ordered.map((state) => state.name));
+  const mappingBySource = new Map(resolved.map((mapping) => [mapping.source.toLocaleLowerCase(), mapping]));
+  container.replaceChildren(...ordered.map((state) => {
+    const row = document.createElement("label");
+    row.className = "state-mapping-row";
+    const source = document.createElement("span");
+    source.className = "state-mapping-source";
+    const name = document.createElement("strong");
+    name.textContent = state.name;
+    source.append(stateGlyph(state.group, state.color), name);
+    const arrow = document.createElement("span");
+    arrow.className = "state-mapping-arrow";
+    arrow.textContent = "→";
+    arrow.setAttribute("aria-hidden", "true");
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", `Next state after ${state.name}`);
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "No change";
+    select.append(none, ...ordered.filter((candidate) => candidate.name !== state.name).map((candidate) => {
+      const option = document.createElement("option");
+      option.value = candidate.name;
+      option.textContent = candidate.name;
+      return option;
+    }));
+    select.value = mappingBySource.get(state.name.toLocaleLowerCase())?.target || "";
+    select.addEventListener("change", () => {
+      const next = resolved.map((mapping) => mapping.source === state.name
+        ? { source: mapping.source, target: select.value }
+        : mapping);
+      onChange(next);
+    });
+    row.append(source, arrow, select);
+    return row;
+  }));
+}
+
 function renderSelectionRows(container, items, selectedIds, secondaryText, onChange, reorder = null) {
   const visibleItems = reorder ? orderedItems(items, reorder.order, (item) => item.id) : items;
   const selected = new Set(selectedOrAll(selectedIds, items.map((item) => item.id)));
@@ -644,6 +717,26 @@ function renderOnboardingStates() {
   syncSelectionActions(elements.stateOptions, elements.stateSelectAll, elements.stateSelectNone);
 }
 
+function renderOnboardingCompletion() {
+  const states = availableStates(discovery, draftProjectIds);
+  draftCheckStateMappings = resolvedStateMappings(
+    states,
+    draftCheckStateMappings,
+    states.map((state) => state.name)
+  );
+  renderStateMappings(
+    elements.setupTransitionOptions,
+    states,
+    draftCheckStateMappings,
+    states.map((state) => state.name),
+    (next) => {
+      draftCheckStateMappings = next;
+      renderOnboardingCompletion();
+    }
+  );
+  elements.setupCheckOptions.hidden = !elements.setupChangeOnCheck.checked;
+}
+
 function showStep(nextStep) {
   setupStep = nextStep;
   for (const panel of document.querySelectorAll(".setup-step")) {
@@ -652,7 +745,7 @@ function showStep(nextStep) {
     panel.classList.toggle("is-active", active);
   }
   elements.setupTitle.textContent = stepTitles[setupStep];
-  elements.setupProgress.textContent = setupStep === 0 ? "Welcome" : `Step ${setupStep} of 6`;
+  elements.setupProgress.textContent = setupStep === 0 ? "Welcome" : `Step ${setupStep} of 7`;
   elements.setupNext.textContent = stepActions[setupStep];
   elements.setupBack.hidden = setupStep === 0;
   elements.setupError.textContent = "";
@@ -667,6 +760,7 @@ function openOnboarding() {
   draftAssigneeIds = settings.setupComplete ? [...(settings.assigneeIds || [])] : null;
   draftProjectIds = settings.setupComplete && Array.isArray(settings.projectIds) ? [...settings.projectIds] : null;
   draftStateNames = settings.setupComplete && Array.isArray(settings.stateNames) ? [...settings.stateNames] : null;
+  draftCheckStateMappings = [...(settings.checkStateMappings || [])];
   connectionDraft = { baseUrl: settings.baseUrl || "", workspaceSlug: settings.workspaceSlug || "" };
   elements.planePageUrl.value = settings.baseUrl && settings.workspaceSlug
     ? `${settings.baseUrl}/${settings.workspaceSlug}/`
@@ -678,10 +772,14 @@ function openOnboarding() {
   elements.profileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
   elements.groupByProject.checked = settings.groupByProject;
   elements.preferOnTop.checked = settings.alwaysOnTop;
+  elements.setupChangeOnCheck.checked = settings.setupComplete ? settings.changeOnCheck : true;
+  elements.setupCompletionSound.checked = settings.completionSound !== false;
+  elements.setupCheckOptions.hidden = !elements.setupChangeOnCheck.checked;
   elements.memberFallback.hidden = true;
   elements.memberOptions.replaceChildren();
   elements.projectOptions.replaceChildren();
   elements.stateOptions.replaceChildren();
+  elements.setupTransitionOptions.replaceChildren();
   showStep(0);
   if (!elements.setup.open) elements.setup.showModal();
 }
@@ -735,7 +833,12 @@ async function advanceSetup() {
     showStep(5);
     return;
   }
-  if (setupStep === 5) return showStep(6);
+  if (setupStep === 5) {
+    renderOnboardingCompletion();
+    showStep(6);
+    return;
+  }
+  if (setupStep === 6) return showStep(7);
 
   elements.setupNext.disabled = true;
   elements.setupNext.textContent = "Saving…";
@@ -755,6 +858,9 @@ async function advanceSetup() {
       memberOrder: discovery.members.map((item) => item.id),
       projectOrder: discovery.projects.map((item) => item.id),
       stateOrder: availableStates(discovery, draftProjectIds).map((item) => item.name),
+      changeOnCheck: elements.setupChangeOnCheck.checked,
+      checkStateMappings: draftCheckStateMappings,
+      completionSound: elements.setupCompletionSound.checked,
       groupByProject: elements.groupByProject.checked,
       alwaysOnTop: elements.preferOnTop.checked,
       refreshMinutes: 5,
@@ -769,7 +875,7 @@ async function advanceSetup() {
     elements.setupError.textContent = error.message;
   } finally {
     elements.setupNext.disabled = false;
-    elements.setupNext.textContent = stepActions[6];
+    elements.setupNext.textContent = stepActions[7];
   }
 }
 
@@ -792,6 +898,7 @@ function renderSettingsMembers() {
       onChange: (next) => {
         settingsDraftMemberOrder = next;
         renderSettingsMembers();
+        scheduleSettingsSave();
       }
     }
   );
@@ -818,6 +925,7 @@ function renderSettingsProjects() {
       onChange: (next) => {
         settingsDraftProjectOrder = next;
         renderSettingsProjects();
+        scheduleSettingsSave();
       }
     }
   );
@@ -837,6 +945,7 @@ function renderSettingsStates() {
     onChange: (next) => {
       settingsDraftStateOrder = next;
       renderSettingsStates();
+      scheduleSettingsSave();
     }
   });
   syncSelectionActions(elements.settingsStateOptions, elements.settingsStateSelectAll, elements.settingsStateSelectNone);
@@ -844,16 +953,22 @@ function renderSettingsStates() {
 }
 
 function renderSettingsCompletionOptions(states) {
-  const current = elements.settingsCheckTargetState.value || settings.checkTargetStateName;
-  const ordered = orderedItems(states, settingsDraftStateOrder, (state) => state.name);
-  elements.settingsCheckTargetState.replaceChildren(...ordered.map((state) => {
-    const option = document.createElement("option");
-    option.value = state.name;
-    option.textContent = `${state.name} · ${stateGroupLabels[state.group] || "Workflow state"}`;
-    return option;
-  }));
-  const fallback = ordered.find((state) => state.group === "completed")?.name || ordered[0]?.name || "";
-  elements.settingsCheckTargetState.value = ordered.some((state) => state.name === current) ? current : fallback;
+  settingsDraftCheckStateMappings = resolvedStateMappings(
+    states,
+    settingsDraftCheckStateMappings,
+    settingsDraftStateOrder
+  );
+  renderStateMappings(
+    elements.settingsTransitionOptions,
+    states,
+    settingsDraftCheckStateMappings,
+    settingsDraftStateOrder,
+    (next) => {
+      settingsDraftCheckStateMappings = next;
+      renderSettingsCompletionOptions(states);
+      scheduleSettingsSave();
+    }
+  );
   elements.settingsCheckOptions.hidden = !elements.settingsChangeOnCheck.checked;
 }
 
@@ -904,6 +1019,7 @@ function hydrateSettingsForm() {
   settingsDraftMemberOrder = [...(settings.memberOrder || [])];
   settingsDraftProjectOrder = [...(settings.projectOrder || [])];
   settingsDraftStateOrder = [...(settings.stateOrder || [])];
+  settingsDraftCheckStateMappings = [...(settings.checkStateMappings || [])];
   elements.settingsPlaneUrl.value = settings.baseUrl && settings.workspaceSlug
     ? `${settings.baseUrl}/${settings.workspaceSlug}/`
     : "";
@@ -923,7 +1039,7 @@ function hydrateSettingsForm() {
   elements.settingsGroupMember.checked = settings.groupByMember;
   elements.settingsChangeOnCheck.checked = settings.changeOnCheck;
   elements.settingsCheckOptions.hidden = !settings.changeOnCheck;
-  elements.settingsCheckTargetState.replaceChildren();
+  elements.settingsTransitionOptions.replaceChildren();
   elements.settingsCompletionSound.checked = settings.completionSound;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
   elements.settingsCompactCards.checked = settings.compactCards;
@@ -960,10 +1076,11 @@ function hydrateSettingsForm() {
 }
 
 async function openSettings() {
+  if (!settingsView) return window.planePin.openSettingsWindow();
   hydrateSettingsForm();
   refreshUpdateState();
   elements.settingsError.textContent = "";
-  if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
+  if (!elements.settingsDialog.open) elements.settingsDialog.show();
   requestAnimationFrame(() => {
     elements.settingsPlaneUrl.focus({ preventScroll: true });
     elements.settingsBody.scrollTop = settingsScrollTop;
@@ -978,9 +1095,13 @@ async function openSettings() {
 }
 
 async function saveSettingsForm() {
+  if (settingsSaveInFlight) {
+    settingsSaveAgain = true;
+    return;
+  }
+  settingsSaveInFlight = true;
   elements.settingsError.textContent = "";
-  elements.settingsSave.disabled = true;
-  elements.settingsSave.textContent = "Saving…";
+  elements.settingsSaveStatus.textContent = "Saving…";
   try {
     const connection = parsePlanePageUrl(elements.settingsPlaneUrl.value);
     const connectionChanged = connection.baseUrl !== settings.baseUrl
@@ -1014,7 +1135,8 @@ async function saveSettingsForm() {
       groupByProject: elements.settingsGroupProject.checked,
       groupByMember: elements.settingsGroupMember.checked,
       changeOnCheck: elements.settingsChangeOnCheck.checked,
-      checkTargetStateName: elements.settingsCheckTargetState.value,
+      checkStateMappings: settingsDraftCheckStateMappings,
+      checkTargetStateName: "",
       completionSound: elements.settingsCompletionSound.checked,
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
@@ -1026,18 +1148,36 @@ async function saveSettingsForm() {
       theme: elements.settingsThemeDark.checked ? "dark" : "light"
     });
     settings = await window.planePin.getSettings();
+    if (elements.settingsToken.value) {
+      elements.settingsToken.value = "";
+      elements.settingsToken.placeholder = "Saved securely — enter only to replace";
+      elements.settingsTokenNote.textContent = "Leave blank to keep the encrypted token already saved.";
+    }
     settingsRevision += 1;
     applySettingsToShell();
-    renderCachedTasks();
-    elements.settingsDialog.close();
-    scheduleAutoRefresh();
-    void refreshTasks({ quiet: true });
+    elements.settingsSaveStatus.textContent = "All changes saved.";
+    if (!settingsView) {
+      scheduleAutoRefresh();
+      renderCachedTasks();
+      void refreshTasks({ quiet: true });
+    }
   } catch (error) {
     elements.settingsError.textContent = error.message;
+    elements.settingsSaveStatus.textContent = "Couldn’t save changes.";
   } finally {
-    elements.settingsSave.disabled = false;
-    elements.settingsSave.textContent = "Save changes";
+    settingsSaveInFlight = false;
+    if (settingsSaveAgain) {
+      settingsSaveAgain = false;
+      scheduleSettingsSave(0);
+    }
   }
+}
+
+function scheduleSettingsSave(delay = 350) {
+  if (!settingsView) return;
+  clearTimeout(settingsSaveTimer);
+  elements.settingsSaveStatus.textContent = "Unsaved changes…";
+  settingsSaveTimer = setTimeout(saveSettingsForm, delay);
 }
 
 function stateChip(task) {
@@ -1059,8 +1199,9 @@ function estimateChip(task) {
   return chip;
 }
 
-function celebrateTask(item) {
-  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+function celebrateTask(item, screenPoint) {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reducedMotion) {
     const burst = document.createElement("span");
     burst.className = "confetti-burst";
     for (let index = 0; index < 10; index += 1) {
@@ -1071,6 +1212,10 @@ function celebrateTask(item) {
     }
     item.append(burst);
     setTimeout(() => burst.remove(), 900);
+    window.planePin.celebrateAt(screenPoint.x, screenPoint.y).catch(() => {
+      // The state change already succeeded; a compositor without transparency
+      // support should not turn celebration into a task error.
+    });
   }
   if (!settings.completionSound) return;
   const Audio = window.AudioContext || window.webkitAudioContext;
@@ -1089,6 +1234,27 @@ function celebrateTask(item) {
     oscillator.stop(now + delay + 0.13);
   }
   setTimeout(() => context.close(), 500);
+}
+
+function showStateTransition(item, task, result) {
+  const transition = document.createElement("div");
+  transition.className = "state-transition";
+  transition.setAttribute("aria-hidden", "true");
+  const from = document.createElement("span");
+  from.className = "transition-state transition-from";
+  from.append(stateGlyph(task.stateGroup, task.stateColor), document.createTextNode(task.stateName));
+  const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  arrow.setAttribute("viewBox", "0 0 54 18");
+  arrow.classList.add("transition-arrow");
+  const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  arrowPath.setAttribute("d", "M2 9h45m-7-6 7 6-7 6");
+  arrow.append(arrowPath);
+  const to = document.createElement("span");
+  to.className = "transition-state transition-to";
+  to.append(stateGlyph(result.stateGroup, result.stateColor), document.createTextNode(result.stateName));
+  transition.append(from, arrow, to);
+  item.append(transition);
+  requestAnimationFrame(() => item.classList.add("is-state-transitioning"));
 }
 
 function replaceCachedTask(nextTask) {
@@ -1199,16 +1365,20 @@ function taskRow(task) {
   openIcon.setAttribute("aria-hidden", "true");
   button.append(priorityDot, name, meta, openIcon);
   item.append(button);
-  if (settings.changeOnCheck) {
+  const targetStateName = settings.changeOnCheck
+    ? targetForState(settings.checkStateMappings, task.stateName, settings.checkTargetStateName)
+    : "";
+  if (targetStateName) {
     item.classList.add("has-completion");
     const complete = document.createElement("button");
     complete.className = "complete-task";
     complete.type = "button";
-    complete.setAttribute("aria-label", `Move ${task.identifier} to ${settings.checkTargetStateName}`);
-    complete.dataset.tooltip = `Move to ${settings.checkTargetStateName}`;
+    complete.setAttribute("aria-label", `Move ${task.identifier} to ${targetStateName}`);
+    complete.dataset.tooltip = `Move to ${targetStateName}`;
     complete.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.2 8.2 3 3 6.6-6.5"></path></svg>';
     complete.addEventListener("click", async (event) => {
       event.stopPropagation();
+      const screenPoint = { x: event.screenX, y: event.screenY };
       complete.disabled = true;
       item.classList.add("is-checking");
       try {
@@ -1223,12 +1393,13 @@ function taskRow(task) {
         });
         item.classList.remove("is-checking");
         item.classList.add("is-checked");
-        celebrateTask(item);
+        showStateTransition(item, task, result);
+        if (shouldCelebrateTransition(result)) celebrateTask(item, screenPoint);
         createUndoToast(originalTask, result);
         setTimeout(() => {
           renderCachedTasks();
           void refreshTasks({ quiet: true });
-        }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 650);
+        }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 2050);
       } catch (error) {
         item.classList.remove("is-checking");
         complete.disabled = false;
@@ -1478,6 +1649,9 @@ $("#window-close").addEventListener("click", window.planePin.closeWindow);
 elements.setupClose.addEventListener("click", () => elements.setup.close());
 elements.setupLater.addEventListener("click", () => elements.setup.close());
 elements.setupBack.addEventListener("click", () => showStep(Math.max(0, setupStep - 1)));
+elements.setupChangeOnCheck.addEventListener("change", () => {
+  elements.setupCheckOptions.hidden = !elements.setupChangeOnCheck.checked;
+});
 elements.memberSelectAll.addEventListener("click", () => setEverySelection(elements.memberOptions, true, () => {
   draftAssigneeIds = selectedValues(elements.memberOptions);
   syncSelectionActions(elements.memberOptions, elements.memberSelectAll, elements.memberSelectNone);
@@ -1509,8 +1683,11 @@ elements.setupForm.addEventListener("submit", async (event) => {
   await advanceSetup();
 });
 
-elements.settingsClose.addEventListener("click", () => elements.settingsDialog.close());
-elements.settingsCancel.addEventListener("click", () => elements.settingsDialog.close());
+const closeSettings = () => settingsView
+  ? window.planePin.closeSettingsWindow()
+  : elements.settingsDialog.close();
+elements.settingsClose.addEventListener("click", closeSettings);
+elements.settingsSave.addEventListener("click", closeSettings);
 elements.settingsBody.addEventListener("scroll", () => {
   settingsScrollTop = elements.settingsBody.scrollTop;
 });
@@ -1519,6 +1696,7 @@ elements.settingsTokenVisibility.addEventListener("click", () =>
 elements.settingsChangeOnCheck.addEventListener("change", () => {
   elements.settingsCheckOptions.hidden = !elements.settingsChangeOnCheck.checked;
 });
+elements.settingsForm.addEventListener("change", () => scheduleSettingsSave());
 async function runUpdateAction(forceInstall = false) {
   try {
     renderUpdateState(forceInstall || updateState.status === "available" || updateState.status === "ready"
@@ -1533,6 +1711,7 @@ elements.updateToolbar.addEventListener("click", () => runUpdateAction(true));
 elements.settingsTest.addEventListener("click", async () => {
   try {
     await testSettingsConnection();
+    scheduleSettingsSave(0);
   } catch {
     // Error is already visible beside the action.
   }
@@ -1541,33 +1720,39 @@ elements.settingsMemberSelectAll.addEventListener("click", () =>
   setEverySelection(elements.settingsMemberOptions, true, () => {
     settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
     renderSettingsMembers();
+    scheduleSettingsSave();
   }));
 elements.settingsMemberSelectNone.addEventListener("click", () =>
   setEverySelection(elements.settingsMemberOptions, false, () => {
     settingsDraftAssigneeIds = selectedValues(elements.settingsMemberOptions);
     renderSettingsMembers();
+    scheduleSettingsSave();
   }));
 elements.settingsProjectSelectAll.addEventListener("click", () =>
   setEverySelection(elements.settingsProjectOptions, true, () => {
     settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
     renderSettingsProjects();
     renderSettingsStates();
+    scheduleSettingsSave();
   }));
 elements.settingsProjectSelectNone.addEventListener("click", () =>
   setEverySelection(elements.settingsProjectOptions, false, () => {
     settingsDraftProjectIds = selectedValues(elements.settingsProjectOptions);
     renderSettingsProjects();
     renderSettingsStates();
+    scheduleSettingsSave();
   }));
 elements.settingsStateSelectAll.addEventListener("click", () =>
   setEverySelection(elements.settingsStateOptions, true, () => {
     settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
     renderSettingsStates();
+    scheduleSettingsSave();
   }));
 elements.settingsStateSelectNone.addEventListener("click", () =>
   setEverySelection(elements.settingsStateOptions, false, () => {
     settingsDraftStateNames = selectedValues(elements.settingsStateOptions);
     renderSettingsStates();
+    scheduleSettingsSave();
   }));
 elements.settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1605,6 +1790,15 @@ window.planePin.onTrayCommand(async (command) => {
   }
 });
 window.planePin.onUpdateState(renderUpdateState);
+window.planePin.onSettingsChanged((nextSettings) => {
+  if (settingsView) return;
+  settings = nextSettings;
+  settingsRevision += 1;
+  applySettingsToShell();
+  renderCachedTasks();
+  scheduleAutoRefresh();
+  void refreshTasks({ quiet: true });
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && compactMode && !elements.setup.open && !elements.settingsDialog.open) {
@@ -1638,6 +1832,11 @@ document.addEventListener("keydown", (event) => {
 async function init() {
   settings = await window.planePin.getSettings();
   applySettingsToShell();
+  if (settingsView) {
+    document.title = "Plane Pin Settings";
+    await openSettings();
+    return;
+  }
   scheduleAutoRefresh();
   if (!settings.setupComplete) {
     elements.status.textContent = "Setup not finished";

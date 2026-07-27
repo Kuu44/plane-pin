@@ -1,10 +1,11 @@
 "use strict";
 
-const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, nativeTheme, safeStorage, shell } = require("electron");
+const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, nativeTheme, safeStorage, screen, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { autoUpdater } = require("electron-updater");
+const { cleanStateMappings, targetForState } = require("./renderer/completion-model");
 const {
   hiddenLaunchArgument,
   linuxExecutable,
@@ -26,6 +27,7 @@ const { createUpdateManager } = require("./update-manager");
 const { shouldHideToTray, windowChromeOptions } = require("./window-behavior");
 
 let mainWindow;
+let settingsWindow;
 let tray;
 let sessionToken = "";
 let credentialState = {
@@ -39,6 +41,7 @@ let dragOrigin = null;
 let lastTaskCount = 0;
 let lastTaskRefs = new Map();
 const pendingTaskUndos = new Map();
+const celebrationWindows = new Set();
 const settingsFileName = "settings.json";
 const macAutoUpdatesEnabled = false;
 
@@ -206,7 +209,7 @@ async function restoreCredentials() {
     || records.find((record) => record.value.apiToken)?.value.apiToken;
   const needsMigration = primaryRecord
     && (primaryRecord.path !== settingsPath()
-      || primaryRecord.value.schemaVersion !== 3
+      || primaryRecord.value.schemaVersion !== 4
       || (loaded.encryptedToken && tokenRecord?.path !== settingsPath())
       || reencrypted.has(loaded.encryptedToken)
       || Boolean(primaryRecord.value.updateToken));
@@ -233,6 +236,7 @@ async function saveSettings(input) {
   const groupByProject = Boolean(input.groupByProject);
   const groupByMember = Boolean(input.groupByMember);
   const changeOnCheck = Boolean(input.changeOnCheck);
+  const checkStateMappings = cleanStateMappings(input.checkStateMappings);
   const checkTargetStateName = String(input.checkTargetStateName || "").trim().slice(0, 100);
   const completionSound = input.completionSound !== false;
   const alwaysOnTop = Boolean(input.alwaysOnTop);
@@ -262,12 +266,8 @@ async function saveSettings(input) {
   if ([...assigneeIds, ...memberOrder, ...projectOrder].some((id) => !isUuid(id))) {
     throw new Error("Every saved member and project must have a valid Plane UUID.");
   }
-  if (changeOnCheck && !checkTargetStateName) {
-    throw new Error("Choose the workflow state applied by the task checkmark.");
-  }
-
   const stored = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     baseUrl,
     workspaceSlug,
     memberId,
@@ -282,6 +282,7 @@ async function saveSettings(input) {
     groupByProject,
     groupByMember,
     changeOnCheck,
+    checkStateMappings,
     checkTargetStateName,
     completionSound,
     alwaysOnTop,
@@ -311,8 +312,13 @@ async function saveSettings(input) {
     encryptedTokenPresent: Boolean(stored.apiToken)
   };
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
+  settingsWindow?.setAlwaysOnTop(alwaysOnTop);
   nativeTheme.themeSource = theme;
+  settingsWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
   refreshTray();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("settings:changed", publicSettings());
+  }
   return {
     persistedToken: Boolean(stored.apiToken)
   };
@@ -373,17 +379,19 @@ function handleTrayCommand(id) {
   }
   if (id === "always-on-top") {
     const alwaysOnTop = !normalizeStoredSettings(stored).alwaysOnTop;
-    writeStoredSettings({ ...stored, schemaVersion: 3, alwaysOnTop });
+    writeStoredSettings({ ...stored, schemaVersion: 4, alwaysOnTop });
     mainWindow?.setAlwaysOnTop(alwaysOnTop);
+    settingsWindow?.setAlwaysOnTop(alwaysOnTop);
     sendTrayCommand("always-on-top");
     return refreshTray();
   }
   if (id === "compact-cards") {
     const compactCards = !normalizeStoredSettings(stored).compactCards;
-    writeStoredSettings({ ...stored, schemaVersion: 3, compactCards });
+    writeStoredSettings({ ...stored, schemaVersion: 4, compactCards });
     sendTrayCommand("compact-cards");
     return refreshTray();
   }
+  if (id === "settings") return openSettingsWindow();
   showWindow();
   sendTrayCommand(id);
 }
@@ -475,6 +483,97 @@ function createWindow({ showOnReady = true } = {}) {
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
+function openSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow.isMinimized()) settingsWindow.restore();
+    settingsWindow.show();
+    settingsWindow.focus();
+    return true;
+  }
+  const settings = loadSettings();
+  settingsWindow = new BrowserWindow({
+    width: 580,
+    height: 760,
+    minWidth: 420,
+    minHeight: 520,
+    show: false,
+    alwaysOnTop: settings.alwaysOnTop,
+    backgroundColor: settings.theme === "dark" ? "#17171a" : "#f7f7f8",
+    icon: path.join(__dirname, "renderer", "assets", "app-icon.png"),
+    title: "Plane Pin Settings",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  settingsWindow.removeMenu();
+  settingsWindow.once("ready-to-show", () => settingsWindow?.show());
+  settingsWindow.on("close", (event) => {
+    if (quitting) return;
+    event.preventDefault();
+    settingsWindow.hide();
+  });
+  settingsWindow.on("closed", () => {
+    settingsWindow = null;
+  });
+  settingsWindow.loadFile(path.join(__dirname, "renderer", "index.html"), {
+    query: { view: "settings" }
+  });
+  return true;
+}
+
+function showCelebration(input) {
+  const screenX = Number(input?.screenX);
+  const screenY = Number(input?.screenY);
+  if (!Number.isFinite(screenX) || !Number.isFinite(screenY)) return false;
+  const display = screen.getDisplayNearestPoint({
+    x: Math.round(screenX),
+    y: Math.round(screenY)
+  });
+  const { x, y, width, height } = display.bounds;
+  const overlay = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    transparent: true,
+    frame: false,
+    focusable: false,
+    fullscreenable: false,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    show: false,
+    skipTaskbar: true,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false
+    }
+  });
+  celebrationWindows.add(overlay);
+  overlay.setIgnoreMouseEvents(true);
+  overlay.setAlwaysOnTop(true, "screen-saver");
+  overlay.once("ready-to-show", () => overlay.showInactive());
+  overlay.on("closed", () => celebrationWindows.delete(overlay));
+  overlay.loadFile(path.join(__dirname, "renderer", "confetti.html"), {
+    query: {
+      x: String(screenX - x),
+      y: String(screenY - y)
+    }
+  });
+  const safety = setTimeout(() => {
+    if (!overlay.isDestroyed()) overlay.destroy();
+  }, 20_000);
+  safety.unref?.();
+  return true;
+}
+
 function createUpdateService() {
   const supported = app.isPackaged && (process.platform !== "darwin" || macAutoUpdatesEnabled);
   const unsupportedMessage = app.isPackaged
@@ -500,6 +599,8 @@ function createUpdateService() {
 
 ipcMain.handle("settings:get", () => publicSettings());
 ipcMain.handle("settings:save", (_event, input) => saveSettings(input));
+ipcMain.handle("window:open-settings", openSettingsWindow);
+ipcMain.handle("window:close-settings", () => settingsWindow?.hide());
 ipcMain.handle("update:get-state", () => updateManager?.getState());
 ipcMain.handle("update:check", () => updateManager?.check());
 ipcMain.handle("update:install", () => updateManager?.install());
@@ -514,8 +615,9 @@ ipcMain.handle("setup:discover", async (_event, input) => {
 });
 ipcMain.handle("window:set-always-on-top", (_event, enabled) => {
   const alwaysOnTop = Boolean(enabled);
-  writeStoredSettings({ ...readStoredSettings(), schemaVersion: 3, alwaysOnTop });
+  writeStoredSettings({ ...readStoredSettings(), schemaVersion: 4, alwaysOnTop });
   mainWindow?.setAlwaysOnTop(alwaysOnTop);
+  settingsWindow?.setAlwaysOnTop(alwaysOnTop);
   refreshTray();
   return alwaysOnTop;
 });
@@ -526,20 +628,21 @@ ipcMain.handle("settings:set-preference", (_event, key, value) => {
   const stored = readStoredSettings();
   if (key === "theme") {
     const theme = value === "dark" ? "dark" : "light";
-    writeStoredSettings({ ...stored, schemaVersion: 3, theme });
+    writeStoredSettings({ ...stored, schemaVersion: 4, theme });
     nativeTheme.themeSource = theme;
     mainWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
+    settingsWindow?.setBackgroundColor(theme === "dark" ? "#17171a" : "#f7f7f8");
     return theme;
   }
   if (booleanPreferences.has(key)) {
     const next = Boolean(value);
-    writeStoredSettings({ ...stored, schemaVersion: 3, [key]: next });
+    writeStoredSettings({ ...stored, schemaVersion: 4, [key]: next });
     refreshTray();
     return next;
   }
   if (key === "collapsedGroupKeys") {
     const collapsedGroupKeys = cleanOrder(value);
-    writeStoredSettings({ ...stored, schemaVersion: 3, collapsedGroupKeys });
+    writeStoredSettings({ ...stored, schemaVersion: 4, collapsedGroupKeys });
     return collapsedGroupKeys;
   }
   throw new Error("Unknown preference.");
@@ -591,8 +694,8 @@ ipcMain.handle("task:open", async (_event, taskUrl) => {
 ipcMain.handle("task:change-state", async (_event, input) => {
   if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
   const settings = loadSettings();
-  if (!settings.changeOnCheck || !settings.checkTargetStateName || !sessionToken) {
-    throw new Error("Turn on Change on check and choose a target state in Settings first.");
+  if (!settings.changeOnCheck || !sessionToken) {
+    throw new Error("Turn on Change on check in Settings first.");
   }
   const taskId = String(input?.taskId || "");
   const projectId = String(input?.projectId || "");
@@ -600,12 +703,20 @@ ipcMain.handle("task:change-state", async (_event, input) => {
   if (!taskRef || taskRef.projectId !== projectId) {
     throw new Error("Refresh the task list before changing this task.");
   }
+  const targetStateName = targetForState(
+    settings.checkStateMappings,
+    taskRef.stateName,
+    settings.checkTargetStateName
+  );
+  if (!targetStateName) {
+    throw new Error(`No checkmark change is configured for "${taskRef.stateName}".`);
+  }
   const result = await updateTaskState({
     ...settings,
     apiToken: sessionToken,
     projectId,
     taskId,
-    stateName: settings.checkTargetStateName
+    stateName: targetStateName
   });
   const undoToken = randomUUID();
   pendingTaskUndos.set(undoToken, {
@@ -617,6 +728,11 @@ ipcMain.handle("task:change-state", async (_event, input) => {
   const cleanup = setTimeout(() => pendingTaskUndos.delete(undoToken), 15 * 60_000);
   cleanup.unref?.();
   return { ...result, undoToken };
+});
+ipcMain.handle("celebration:show", (_event, input) => showCelebration(input));
+ipcMain.on("celebration:complete", (event) => {
+  const overlay = BrowserWindow.fromWebContents(event.sender);
+  if (overlay && celebrationWindows.has(overlay) && !overlay.isDestroyed()) overlay.destroy();
 });
 ipcMain.handle("task:undo-state", async (_event, input) => {
   if (!sessionToken && credentialState.tokenUnavailable) await restoreCredentials();
@@ -690,7 +806,7 @@ if (!app.requestSingleInstanceLock()) {
     createWindow({ showOnReady: !wasOpenedAtLogin() || !tray });
     updateManager.check();
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (!mainWindow || mainWindow.isDestroyed()) createWindow();
       else showWindow();
     });
   });
@@ -701,6 +817,8 @@ app.on("before-quit", () => {
 });
 
 app.on("will-quit", () => {
+  for (const overlay of celebrationWindows) overlay.destroy();
+  celebrationWindows.clear();
   tray?.destroy();
   tray = null;
 });
