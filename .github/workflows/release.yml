@@ -14,13 +14,13 @@ jobs:
     name: Verify tag and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           lfs: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - name: Confirm the tag matches the tracked Windows release
         if: github.ref_type == 'tag'
@@ -72,10 +72,10 @@ jobs:
             script: "dist:linux"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       # No Apple Developer certificate is available, so the macOS build ships
@@ -93,7 +93,7 @@ jobs:
                -o -name 'latest-*.yml' -o -name '*.blockmap' \) \
             -exec cp {} release-assets/ \;
           ls -la release-assets
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: plane-pin-${{ matrix.platform }}
           path: release-assets/
@@ -105,11 +105,11 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           lfs: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: downloaded
           merge-multiple: true

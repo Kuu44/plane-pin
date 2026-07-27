@@ -1,19 +1,33 @@
 // Screenshots the renderer against a stubbed bridge so card density and the
 // task-only rail can be checked without a live Plane workspace.
 //
-// Playwright is a review-time tool, not a dependency of the app:
-//   npm i -D playwright && npx playwright install chromium
-//   node scripts/preview-renderer.mjs <output-dir>
-// Set PLAYWRIGHT_CHROMIUM to use a Chromium that is already on the machine.
+// Run `npm run preview:renderer`. Set PLAYWRIGHT_CHROMIUM to override the
+// installed Chrome/Edge executable used for the screenshots.
 import { chromium } from "playwright";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const page_url = `file://${path.join(here, "..", "src", "renderer", "index.html")}`;
+const root = path.join(here, "..");
+const packageVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
+const page_url = pathToFileURL(path.join(root, "src", "renderer", "index.html")).href;
 const outputDir = process.argv[2] || "/tmp/plane-pin-preview";
 fs.mkdirSync(outputDir, { recursive: true });
+
+const browserCandidates = [
+  process.env.PLAYWRIGHT_CHROMIUM,
+  process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
+  process.env["PROGRAMFILES(X86)"] && path.join(process.env["PROGRAMFILES(X86)"], "Google", "Chrome", "Application", "chrome.exe"),
+  process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
+  process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "Microsoft", "Edge", "Application", "msedge.exe"),
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+  "/usr/bin/google-chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser"
+].filter(Boolean);
+const executablePath = browserCandidates.find((candidate) => fs.existsSync(candidate));
 
 const tasks = [
   ["MKTG-99", "Draft the launch announcement for the new pricing page", "In Progress", "started", "#f59e0b", "high", "Marketing"],
@@ -41,8 +55,12 @@ const tasks = [
 
 async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
   const page = await browser.newPage({ viewport: { width: 380, height: 650 } });
+  page.on("console", (message) => {
+    if (message.type() === "error") console.error(`renderer console: ${message.text()}`);
+  });
+  page.on("pageerror", (error) => console.error(`renderer error: ${error.message}`));
   await page.addInitScript(
-    ({ tasks, compactCards, theme, priorityStyle }) => {
+    ({ tasks, compactCards, theme, priorityStyle, packageVersion }) => {
       const settings = {
         schemaVersion: 3,
         baseUrl: "https://plane.example.com",
@@ -60,6 +78,7 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         changeOnCheck: true,
         checkTargetStateName: "Done",
         completionSound: true,
+        collapsedGroupKeys: [],
         alwaysOnTop: true,
         refreshMinutes: 5,
         theme,
@@ -72,7 +91,7 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         tokenSet: true,
         tokenError: false,
         loginStartupStatus: "disabled",
-        appVersion: "0.11.0",
+        appVersion: packageVersion,
         platform: "win32",
         trayLocation: "notification area"
       };
@@ -116,25 +135,43 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot" }) {
         moveWindowBy: async () => true,
         endWindowDrag: async () => true,
         openTask: async () => {},
-        changeTaskState: async () => ({ stateName: "Done", stateGroup: "completed" }),
+        changeTaskState: async (task) => ({
+          stateName: "Done",
+          stateGroup: "completed",
+          stateColor: "#46a758",
+          undoToken: { taskId: task.id, previousStateId: "state-progress" }
+        }),
+        undoTaskState: async () => ({ stateName: "In Progress", stateGroup: "started", stateColor: "#f59e0b" }),
         listTasks: async () => tasks,
-        getUpdateState: async () => ({ status: "up-to-date", currentVersion: "0.11.0" }),
-        checkForUpdates: async () => ({ status: "up-to-date", currentVersion: "0.11.0" }),
-        installUpdate: async () => ({ status: "installing", currentVersion: "0.11.0" }),
+        getUpdateState: async () => ({ status: "up-to-date", currentVersion: packageVersion }),
+        checkForUpdates: async () => ({ status: "up-to-date", currentVersion: packageVersion }),
+        installUpdate: async () => ({ status: "installing", currentVersion: packageVersion }),
         onTrayCommand: () => {},
         onUpdateState: () => {}
       };
     },
-    { tasks, compactCards, theme, priorityStyle }
+    { tasks, compactCards, theme, priorityStyle, packageVersion }
   );
   await page.goto(page_url);
   await page.waitForSelector(".task-card");
+  const horizontalOverflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth
+  );
+  if (horizontalOverflow > 1) {
+    throw new Error(`Renderer exceeds the viewport by ${horizontalOverflow}px.`);
+  }
   return page;
 }
 
-const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM
-  ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM }
-  : {});
+let browser;
+try {
+  browser = await chromium.launch(executablePath ? { executablePath } : {});
+} catch (error) {
+  throw new Error(
+    "No compatible browser could be launched. Install Chrome/Edge, set PLAYWRIGHT_CHROMIUM, or run `npm exec playwright install chromium`.",
+    { cause: error }
+  );
+}
 const shots = [];
 
 for (const theme of ["light", "dark"]) {
@@ -161,10 +198,34 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
+async function captureReorderMarker(page, containerSelector, name) {
+  const rows = page.locator(`${containerSelector} .selection-row`);
+  if (await rows.count() < 2) throw new Error(`${containerSelector} needs two reorder rows.`);
+  const handle = rows.nth(0).locator(".drag-handle");
+  const target = rows.nth(1);
+  await target.scrollIntoViewIfNeeded();
+  const handleBox = await handle.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!handleBox || !targetBox) throw new Error(`Could not measure ${containerSelector}.`);
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 3, { steps: 12 });
+  await page.waitForFunction(
+    (selector) => document.querySelector(`${selector} .drop-before, ${selector} .drop-after`),
+    containerSelector
+  );
+  await page.screenshot({ path: path.join(outputDir, name) });
+  shots.push(name);
+  await page.mouse.up();
+}
+
 const settingsPage = await open(browser, { compactCards: true, theme: "light" });
 await settingsPage.setViewportSize({ width: 560, height: 760 });
 await settingsPage.click("#settings-open");
 await settingsPage.waitForTimeout(300);
+await captureReorderMarker(settingsPage, "#settings-member-options", "settings-member-reorder.png");
+await captureReorderMarker(settingsPage, "#settings-project-options", "settings-project-reorder.png");
+await captureReorderMarker(settingsPage, "#settings-state-options", "settings-state-reorder.png");
 await settingsPage.evaluate(() => {
   document.querySelector("#settings-member-options").scrollIntoView({ block: "start" });
 });
