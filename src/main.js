@@ -16,6 +16,7 @@ const {
   buildTaskUrl,
   discoverWorkspace,
   fetchAssignedTasks,
+  isMemberFilterId,
   isUuid,
   normalizeBaseUrl,
   taskAssignees,
@@ -263,8 +264,11 @@ async function saveSettings(input) {
   if (!isUuid(memberId)) {
     throw new Error("Member ID must be the UUID from your Plane profile URL.");
   }
-  if ([...assigneeIds, ...memberOrder, ...projectOrder].some((id) => !isUuid(id))) {
-    throw new Error("Every saved member and project must have a valid Plane UUID.");
+  if ([...assigneeIds, ...memberOrder].some((id) => !isMemberFilterId(id))) {
+    throw new Error("Every saved member must have a valid Plane UUID or be Unassigned.");
+  }
+  if (projectOrder.some((id) => !isUuid(id))) {
+    throw new Error("Every saved project must have a valid Plane UUID.");
   }
   const stored = {
     schemaVersion: 4,

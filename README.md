@@ -15,11 +15,11 @@ The first launch opens a guided setup. You will need:
 - A Plane personal access token created under Profile settings
 - Your preferred projects and workflow states
 
-Plane Pin normally identifies the token owner automatically. Older self-hosted versions can use the member UUID from a My Work profile URL as a fallback. Choose any accessible workspace members, projects, and exact workflow-state names; all are selected by default.
+Plane Pin normally identifies the token owner automatically. Older self-hosted versions can use the member UUID from a My Work profile URL as a fallback. Choose any accessible workspace members, **Unassigned** tasks, projects, and exact workflow-state names; all are selected by default during onboarding.
 
 The token is handled only by Electron's main process and persisted with Electron `safeStorage` when OS encryption is available.
 
-Onboarding appears only when no completed setup exists. The separate, movable Settings window remains available afterward and automatically saves valid connection, filter, grouping, refresh, theme, card-density, priority, and window changes. Layout changes update the visible rail before Plane refreshes in the background. Task rows open their Plane issue in the default browser, show the configured estimate when one exists, and refresh every five minutes by default.
+Onboarding appears only when no completed setup exists. The separate, movable Settings window remains available afterward and automatically saves valid connection, filter, grouping, refresh, theme, card-density, priority, and window changes. Layout changes update the visible rail before Plane refreshes in the background. Task rows open their Plane issue in the default browser, show configured project estimate labels such as `S`, `M`, and `XL` when present, and refresh every five minutes by default.
 
 For a workspace Home address such as `https://plane.example.com/engineering/`, setup detects:
 

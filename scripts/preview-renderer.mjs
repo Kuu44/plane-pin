@@ -113,7 +113,8 @@ async function open(browser, { compactCards, theme, priorityStyle = "dot", view 
           member: { id: "94cf0210-9909-4f77-b24e-14b2988156e5", name: "Kuu" },
           members: [
             { id: "94cf0210-9909-4f77-b24e-14b2988156e5", name: "Kuu", email: "kuu@example.com" },
-            { id: "84cf0210-9909-4f77-b24e-14b2988156e5", name: "Bea", email: "bea@example.com" }
+            { id: "84cf0210-9909-4f77-b24e-14b2988156e5", name: "Bea", email: "bea@example.com" },
+            { id: "unassigned", name: "Unassigned", email: "Tasks without an assignee" }
           ],
           projects: [
             {
