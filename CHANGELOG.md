@@ -6,6 +6,16 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-31
+
+### Added
+
+- Added Unassigned to the member picker, filtering, ordering, and member grouping so tasks without an assignee can appear in the rail.
+
+### Fixed
+
+- Restored configured T-shirt estimate labels in full and compact cards across current and older self-hosted Plane estimate payloads.
+
 ## [0.14.0] - 2026-07-27
 
 ### Added

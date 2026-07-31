@@ -2,7 +2,14 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { buildTaskUrl, discoverWorkspace, fetchAssignedTasks, normalizeBaseUrl, updateTaskState } = require("../src/plane-client");
+const {
+  buildTaskUrl,
+  discoverWorkspace,
+  fetchAssignedTasks,
+  isMemberFilterId,
+  normalizeBaseUrl,
+  updateTaskState
+} = require("../src/plane-client");
 
 const projectA = { id: "00918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "MKTG", name: "Marketing" };
 const projectB = { id: "10918ea1-52f7-48bd-abe3-d3efe76ff7dd", identifier: "ENG", name: "Engineering" };
@@ -108,6 +115,73 @@ test("resolves configured estimate labels and preserves legacy numeric estimates
   assert.deepEqual(tasks.map((task) => task.estimateLabel), ["M", "M", "3", ""]);
 });
 
+test("uses project estimate metadata and older inline point payloads", async () => {
+  const requests = [];
+  const request = async (url) => {
+    requests.push(url.pathname);
+    if (url.pathname.endsWith("/projects/")) {
+      return { ok: true, json: async () => [{ ...projectA, estimate: "estimate-a" }, projectB] };
+    }
+    if (url.pathname.endsWith("/states/")) {
+      return { ok: true, json: async () => [{ id: "state-active", name: "In Progress", group: "started" }] };
+    }
+    if (url.pathname.includes("/estimates/estimate-a/estimate-points/")) {
+      return { ok: true, json: async () => [{ id: "point-m", key: 3, value: "M" }] };
+    }
+    if (url.pathname.includes(`/${projectB.id}/estimates/`)) {
+      return {
+        ok: true,
+        json: async () => [{ id: "estimate-b", last_used: true, points: [{ id: "point-xl", key: 5, value: "XL" }] }]
+      };
+    }
+    if (url.pathname.endsWith("/work-items/")) {
+      const estimate_point = url.pathname.includes(projectA.id) ? 3 : 5;
+      return { ok: true, json: async () => [{ id: `task-${estimate_point}`, state: "state-active", assignees: [{ id: "member-a" }], estimate_point }] };
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  const tasks = await fetchAssignedTasks({
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "engineering",
+    projectIds: null,
+    assigneeIds: ["member-a"],
+    stateNames: null,
+    apiToken: "secret"
+  }, request);
+
+  assert.deepEqual(tasks.map((task) => task.estimateLabel), ["M", "XL"]);
+  assert.equal(requests.some((path) => path.includes(`/${projectA.id}/estimates/`) && !path.includes("estimate-a")), false);
+});
+
+test("includes unassigned work when its synthetic member is selected", async () => {
+  const request = async (url) => {
+    if (url.pathname.endsWith("/projects/")) return { ok: true, json: async () => [projectA] };
+    if (url.pathname.endsWith("/states/")) return { ok: true, json: async () => [] };
+    if (url.pathname.endsWith("/estimates/")) return { ok: false, status: 404 };
+    if (url.pathname.endsWith("/work-items/")) {
+      return { ok: true, json: async () => [
+        { id: "assigned", assignees: [{ id: "member-a" }] },
+        { id: "unassigned", assignees: [] }
+      ] };
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  const tasks = await fetchAssignedTasks({
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "engineering",
+    projectIds: null,
+    assigneeIds: ["unassigned"],
+    stateNames: null,
+    apiToken: "secret"
+  }, request);
+
+  assert.deepEqual(tasks.map((task) => task.id), ["unassigned"]);
+  assert.equal(isMemberFilterId("unassigned"), true);
+  assert.equal(isMemberFilterId("not-a-member"), false);
+});
+
 test("skips projects Plane explicitly marks inaccessible", async () => {
   const requestedPaths = [];
   const request = async (url) => {
@@ -196,6 +270,11 @@ test("discovers the current user, projects, and their exact states", async () =>
     id: "94cf0210-9909-4f77-b24e-14b2988156e5",
     name: "Kuu",
     email: "kuu@example.com"
+  });
+  assert.deepEqual(result.members[1], {
+    id: "unassigned",
+    name: "Unassigned",
+    email: "Tasks without an assignee"
   });
   assert.equal(result.projects[0].states[0].name, "Working on");
 });

@@ -1,5 +1,7 @@
 "use strict";
 
+const UNASSIGNED_MEMBER_ID = "unassigned";
+
 function normalizeBaseUrl(value) {
   const url = new URL(value);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
@@ -21,6 +23,10 @@ function asPage(payload) {
 
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isMemberFilterId(value) {
+  return value === UNASSIGNED_MEMBER_ID || isUuid(value);
 }
 
 function buildTaskUrl(baseUrl, workspaceSlug, task) {
@@ -95,20 +101,47 @@ async function fetchStates(baseUrl, workspace, projectId, apiToken, request) {
   return fetchPages(statesUrl, apiToken, request);
 }
 
-async function fetchEstimatePoints(baseUrl, workspace, projectId, apiToken, request) {
+async function fetchEstimatePoints(baseUrl, workspace, project, apiToken, request) {
+  const projectId = project.id;
   const options = { headers: { Accept: "application/json", "X-API-Key": apiToken } };
-  const estimateUrl = new URL(
-    `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/estimates/`,
-    baseUrl
-  );
-  const estimateResponse = await request(estimateUrl, options);
-  if (estimateResponse.status === 403 || estimateResponse.status === 404) return [];
-  if (!estimateResponse.ok) throw new Error(`Plane returned HTTP ${estimateResponse.status}.`);
-  const estimate = await estimateResponse.json();
-  if (!estimate?.id) return [];
+  const configuredEstimate = typeof project.estimate === "object" && project.estimate
+    ? project.estimate
+    : null;
+  let estimateId = String(configuredEstimate?.id || project.estimate || "");
+  let inlinePoints = configuredEstimate?.points || configuredEstimate?.estimate_points;
+
+  if (Array.isArray(inlinePoints)) return inlinePoints;
+
+  if (!estimateId) {
+    const estimateUrl = new URL(
+      `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/estimates/`,
+      baseUrl
+    );
+    const estimateResponse = await request(estimateUrl, options);
+    if (estimateResponse.ok) {
+      const payload = await estimateResponse.json();
+      const estimates = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : payload?.id
+            ? [payload]
+            : [];
+      const estimate = estimates.find((item) => String(item?.id || "") === estimateId)
+        || estimates.find((item) => item?.last_used)
+        || estimates[0];
+      estimateId ||= String(estimate?.id || "");
+      inlinePoints = estimate?.points || estimate?.estimate_points;
+    } else if (estimateResponse.status !== 403 && estimateResponse.status !== 404) {
+      throw new Error(`Plane returned HTTP ${estimateResponse.status}.`);
+    }
+  }
+
+  if (Array.isArray(inlinePoints)) return inlinePoints;
+  if (!estimateId) return [];
 
   const pointsUrl = new URL(
-    `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/estimates/${encodeURIComponent(estimate.id)}/estimate-points/`,
+    `/api/v1/workspaces/${workspace}/projects/${encodeURIComponent(projectId)}/estimates/${encodeURIComponent(estimateId)}/estimate-points/`,
     baseUrl
   );
   const pointsResponse = await request(pointsUrl, options);
@@ -199,7 +232,12 @@ async function discoverWorkspace(config, request = fetch) {
         id: String(member.id),
         name: memberName(member),
         email: String(member.email || "")
-      })),
+      }))
+      .concat({
+        id: UNASSIGNED_MEMBER_ID,
+        name: "Unassigned",
+        email: "Tasks without an assignee"
+      }),
     projects: projectsWithStates
   };
 }
@@ -228,7 +266,7 @@ async function fetchAssignedTasks(config, request = fetch) {
     const [tasks, states, estimatePoints] = await Promise.all([
       fetchPages(url, config.apiToken, request),
       fetchStates(baseUrl, workspace, project.id, config.apiToken, request),
-      fetchEstimatePoints(baseUrl, workspace, project.id, config.apiToken, request)
+      fetchEstimatePoints(baseUrl, workspace, project, config.apiToken, request)
     ]);
     const statesById = new Map(states.map((state) => [String(state.id), state]));
     const estimatePointsById = new Map();
@@ -253,7 +291,11 @@ async function fetchAssignedTasks(config, request = fetch) {
           }
         };
       })
-      .filter((task) => taskAssigneeIds(task).some((id) => selectedAssigneeIds.has(id)))
+      .filter((task) => {
+        const assigneeIds = taskAssigneeIds(task);
+        return assigneeIds.some((id) => selectedAssigneeIds.has(id))
+          || (assigneeIds.length === 0 && selectedAssigneeIds.has(UNASSIGNED_MEMBER_ID));
+      })
       .filter((task) => selectedStateNames === null
         || selectedStateNames.has(String(task.state?.name || "").toLocaleLowerCase()));
   }));
@@ -308,6 +350,7 @@ module.exports = {
   buildTaskUrl,
   discoverWorkspace,
   fetchAssignedTasks,
+  isMemberFilterId,
   isUuid,
   normalizeBaseUrl,
   taskAssignees,

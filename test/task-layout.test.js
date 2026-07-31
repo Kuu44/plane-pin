@@ -109,6 +109,28 @@ test("unassigned project groups keep a stable nested collapse key", () => {
   );
 });
 
+test("unassigned tasks can be selected and sort as a member", () => {
+  const unassigned = {
+    id: "unassigned-task",
+    name: "Needs an owner",
+    projectId: "project-a",
+    projectName: "Alpha",
+    stateName: "Todo",
+    assignees: []
+  };
+  const filtered = filterTasks([...tasks, unassigned], { assigneeIds: ["unassigned"] });
+  assert.deepEqual(filtered.map((task) => task.id), ["unassigned-task"]);
+  assert.deepEqual(
+    layoutTasks(filtered, {
+      groupByMember: true,
+      groupByProject: false,
+      assigneeIds: ["unassigned"],
+      memberOrder: ["unassigned"]
+    }).filter((row) => row.type === "member").map((row) => [row.key, row.name]),
+    [["member:unassigned", "Unassigned"]]
+  );
+});
+
 test("reorder placement follows the visible insertion boundary", () => {
   const values = ["Todo", "In Progress", "Done"];
   assert.deepEqual(

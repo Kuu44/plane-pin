@@ -42,7 +42,8 @@
     const stateKeys = Array.isArray(options.stateNames) ? new Set(options.stateNames.map(key)) : null;
     return tasks
       .filter((task) => assigneeKeys === null
-        || (task.assignees || []).some((assignee) => assigneeKeys.has(key(assignee.id))))
+        || (task.assignees || []).some((assignee) => assigneeKeys.has(key(assignee.id)))
+        || ((task.assignees || []).length === 0 && assigneeKeys.has("unassigned")))
       .filter((task) => projectKeys === null || projectKeys.has(key(task.projectId)))
       .filter((task) => stateKeys === null || stateKeys.has(key(task.stateName)));
   }
@@ -75,7 +76,7 @@
       const match = assignees.find((assignee) => key(assignee.id) === key(memberId));
       if (match) return match;
     }
-    return assignees[0] || { id: "", name: "Unassigned" };
+    return assignees[0] || { id: "unassigned", name: "Unassigned" };
   }
 
   function layoutTasks(tasks, options = {}) {
@@ -114,7 +115,7 @@
         (task) => memberFor(task, orderedMembers).name,
         orderedMembers
       )) {
-        const memberKey = member.id || "unassigned";
+        const memberKey = member.id;
         rows.push({
           type: "member",
           id: member.id,
