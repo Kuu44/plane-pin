@@ -9,8 +9,10 @@ const { cleanStateMappings, targetForState } = require("./renderer/completion-mo
 const {
   hiddenLaunchArgument,
   linuxExecutable,
-  linuxLoginStartupEnabled,
-  setLinuxLoginStartup
+  linuxLoginStartupState,
+  macLoginStartupState,
+  setLinuxLoginStartup,
+  windowsLoginStartupState
 } = require("./login-startup");
 const {
   buildTaskUrl,
@@ -57,24 +59,42 @@ function windowsLoginOptions() {
 }
 
 function loginStartupState() {
+  const requested = normalizeStoredSettings(readStoredSettings()).startAtLogin;
   if (!app.isPackaged) {
-    return { enabled: normalizeStoredSettings(readStoredSettings()).startAtLogin, status: "development" };
-  }
-  if (process.platform === "linux") {
-    const enabled = linuxLoginStartupEnabled(app.getPath("appData"));
     return {
-      enabled,
-      status: enabled ? "enabled" : "disabled"
+      requested,
+      registered: false,
+      effective: null,
+      status: "development"
     };
   }
-  const options = process.platform === "win32" ? windowsLoginOptions() : undefined;
-  const state = app.getLoginItemSettings(options);
-  return {
-    enabled: process.platform === "win32"
-      ? Boolean(state.executableWillLaunchAtLogin ?? state.openAtLogin)
-      : Boolean(state.openAtLogin),
-    status: String(state.status || (state.openAtLogin ? "enabled" : "disabled"))
-  };
+  try {
+    if (process.platform === "linux") {
+      return {
+        requested,
+        ...linuxLoginStartupState(
+          app.getPath("appData"),
+          linuxExecutable(process.env, process.execPath)
+        )
+      };
+    }
+    if (process.platform === "win32") {
+      return windowsLoginStartupState(
+        app.getLoginItemSettings(windowsLoginOptions()),
+        process.execPath,
+        requested
+      );
+    }
+    return macLoginStartupState(app.getLoginItemSettings(), requested);
+  } catch (error) {
+    return {
+      requested,
+      registered: null,
+      effective: null,
+      status: "error",
+      error: error.message
+    };
+  }
 }
 
 function setLoginStartup(enabled) {
@@ -91,7 +111,7 @@ function setLoginStartup(enabled) {
     openAtLogin: next,
     ...(process.platform === "win32" ? windowsLoginOptions() : {})
   });
-  return loginStartupState().enabled;
+  return next;
 }
 
 function wasOpenedAtLogin() {
@@ -307,7 +327,8 @@ async function saveSettings(input) {
   if (suppliedToken || (!stored.apiToken && sessionToken)) {
     stored.apiToken = (await encryptCredential(suppliedToken || sessionToken)).toString("base64");
   }
-  stored.startAtLogin = setLoginStartup(startAtLogin);
+  if (input.startAtLogin !== undefined) setLoginStartup(startAtLogin);
+  stored.startAtLogin = startAtLogin;
   writeStoredSettings(stored);
   if (suppliedToken) sessionToken = suppliedToken;
   credentialState = {
@@ -333,7 +354,11 @@ function publicSettings() {
   const loginStartup = loginStartupState();
   return {
     ...settings,
-    startAtLogin: loginStartup.enabled,
+    startAtLogin: loginStartup.requested,
+    loginStartup,
+    loginStartupRequested: loginStartup.requested,
+    loginStartupRegistered: loginStartup.registered,
+    loginStartupEffective: loginStartup.effective,
     loginStartupStatus: loginStartup.status,
     tokenSet: Boolean(sessionToken || credentialState.encryptedTokenPresent),
     platform: process.platform,

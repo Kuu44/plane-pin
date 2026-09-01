@@ -6,6 +6,23 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-01
+
+### Added
+
+- Added a final “Start good habits!” onboarding page with a recommended launch-at-sign-in choice, quiet platform startup guidance, and a reminder that the preference can be changed later in Settings.
+
+### Changed
+
+- Login startup now keeps the requested preference separate from Windows, macOS, and Linux registration readback, so approval prompts, blocked entries, stale Linux autostart files, and development builds report their actual state.
+- Settings now refreshes the launch-at-sign-in status after every save, including the exact macOS System Settings approval path and Windows startup recovery steps.
+- macOS remains unsigned and unnotarised, so Login Items approval is not guaranteed; tray and startup behavior on real macOS and Linux hardware remains unverified until those packages are tested there.
+
+### Fixed
+
+- Windows startup registration now matches Plane Pin’s exact `--hidden` launch entry instead of treating another entry for the same executable as success.
+- Linux startup checks now validate the XDG desktop entry, quoted executable path, hidden flag, and current executable before reporting it enabled.
+
 ## [0.15.0] - 2026-07-31
 
 ### Added
@@ -274,7 +291,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and t
 - Added direct task links, keyboard-accessible controls, visible focus, and reduced-motion support.
 - Added the first Windows NSIS installer and Plane API tests.
 
-[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/Kuu44/plane-pin/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/Kuu44/plane-pin/compare/v0.15.0...v0.16.0
 [0.13.1]: https://github.com/Kuu44/plane-pin/compare/v0.13.0...v0.13.1
 [0.6.0]: https://github.com/Kuu44/plane-pin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Kuu44/plane-pin/compare/v0.4.0...v0.5.0
