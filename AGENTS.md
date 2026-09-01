@@ -6,7 +6,7 @@ These rules apply from `v0.3.0` onward.
 
 - `master` contains only tested, installable releases.
 - Never commit feature or fix work directly to `master`.
-- Start every change on its own branch, normally `feature/<name>` or `fix/<name>`.
+- Start every change on its own branch; on Kuu's PC, use `kuu/feature/<name>` or `kuu/fix/<name>`.
 - Finish and verify the branch before merging it.
 - Merge into `master` with a merge commit named exactly like the release, for example `v0.3.0`, and tag that commit with the same version.
 - Use semantic versions: bug fix = patch, backward-compatible feature = minor, breaking change = major.
