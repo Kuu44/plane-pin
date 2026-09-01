@@ -83,6 +83,25 @@ test("rejects malformed, stale, and missing Linux autostart targets", () => {
   }), { registered: false, effective: false, status: "disabled" });
 });
 
+test("rejects Linux entries without required keys, duplicate keys, or valid Boolean values", () => {
+  const executable = "/opt/Plane Pin.AppImage";
+  const valid = linuxAutostartContents(executable);
+
+  assert.equal(linuxReadback(valid.replace("Type=Application\n", ""), executable).status, "invalid");
+  assert.equal(linuxReadback(valid.replace("Name=Plane Pin\n", ""), executable).status, "invalid");
+  assert.equal(linuxReadback(valid.replace("Name=Plane Pin\n", "Name=Plane Pin\nName=Another Name\n"), executable).status, "invalid");
+  assert.equal(linuxReadback(valid.replace("X-GNOME-Autostart-enabled=true", "X-GNOME-Autostart-enabled=maybe"), executable).status, "invalid");
+});
+
+test("reports unknown Linux registration when the autostart file cannot be read", () => {
+  const error = new Error("permission denied");
+  error.code = "EACCES";
+
+  assert.deepEqual(linuxLoginStartupState("/home/kuu/.config", "/opt/Plane Pin.AppImage", {
+    readFileSync: () => { throw error; }
+  }), { registered: null, effective: null, status: "error", error: "permission denied" });
+});
+
 test("quotes supported Linux paths and rejects unsafe Exec values", () => {
   assert.match(linuxAutostartContents('/apps/Plane "Pin"\\build.AppImage'), /Exec="\/apps\/Plane \\"Pin\\"\\\\build\.AppImage" --hidden/);
   assert.throws(() => linuxAutostartContents("/apps/Plane%20Pin.AppImage"), /application path is invalid/i);

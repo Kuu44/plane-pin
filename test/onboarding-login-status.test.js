@@ -8,6 +8,7 @@ const test = require("node:test");
 const html = readFileSync(join(__dirname, "../src/renderer/index.html"), "utf8");
 const renderer = readFileSync(join(__dirname, "../src/renderer/renderer.js"), "utf8");
 const main = readFileSync(join(__dirname, "../src/main.js"), "utf8");
+const readme = readFileSync(join(__dirname, "../README.md"), "utf8");
 
 test("onboarding contains the recommended ninth launch-at-sign-in page", () => {
   assert.equal((html.match(/class="setup-step" data-step="\d+"/g) || []).length, 9);
@@ -34,6 +35,10 @@ test("login startup status copy covers platform approval, blocking, errors, and 
   assert.match(renderer, /invalid or stale/);
   assert.match(renderer, /Save again to retry/);
   assert.match(renderer, /Development builds do not register at sign-in/);
+  assert.match(renderer, /unsigned, unnotarised build remains unverified and may still fail after approval/);
+  assert.doesNotMatch(renderer, /cannot guarantee registration until/);
+  assert.match(readme, /current macOS build is unsigned and unnotarised, so it remains unverified and may still fail after approval/);
+  assert.doesNotMatch(readme, /cannot guarantee registration until/);
   assert.match(renderer, /applyLoginStartupStatus\(settings\)/);
 });
 
@@ -48,7 +53,7 @@ test("main process exposes requested, registered, effective, and status separate
 });
 
 test("settings reloads platform startup status after every successful save", () => {
-  assert.match(renderer, /settings = await window\.planePin\.getSettings\(\);[\s\S]{0,120}if \(elements\.settingsToken\.value\)/);
-  assert.match(renderer, /settings = await window\.planePin\.getSettings\(\);\s*applySettingsToShell\(\);/);
+  assert.match(renderer, /settings = await window\.planePin\.getSettings\(\);[\s\S]{0,300}if \(elements\.settingsToken\.value\)/);
+  assert.match(renderer, /settings = await window\.planePin\.getSettings\(\);[\s\S]*?startupDraftStillCurrent[\s\S]*?applySettingsToShell\(\{ preserveStartupDraft: !startupDraftStillCurrent \}\);/);
   assert.match(renderer, /elements\.settingsStartAtLoginNote\.textContent = loginStartupStatusCopy\(nextSettings\)/);
 });

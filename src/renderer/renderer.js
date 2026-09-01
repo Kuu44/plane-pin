@@ -168,7 +168,8 @@ let settingsScrollTop = 0;
 let settingsSaveTimer;
 let settingsSaveInFlight = false;
 let settingsSaveAgain = false;
-let settingsStartAtLoginDirty = false;
+let settingsStartAtLoginRevision = 0;
+let settingsStartAtLoginSavedRevision = 0;
 const windowDrag = window.planePinDrag.createDragTracker();
 let suppressNextClick = false;
 let dragFrame = 0;
@@ -748,7 +749,7 @@ function loginStartupStatusCopy(nextSettings = {}) {
   if (status === "enabled") return `Configured: Plane Pin starts when you sign in and stays reachable in the ${location}.`;
   if (status === "configured") return "Registered to start when you sign in. The operating system has not confirmed startup approval yet.";
   if (status === "requires-approval") {
-    return "macOS needs your approval. Open System Settings → General → Login Items and allow Plane Pin; unsigned builds cannot guarantee registration until you do.";
+    return "macOS may require approval. Open System Settings → General → Login Items and allow Plane Pin. This unsigned, unnotarised build remains unverified and may still fail after approval.";
   }
   if (status === "blocked") {
     return platform === "win32"
@@ -1059,7 +1060,7 @@ async function testSettingsConnection() {
 
 function hydrateSettingsForm() {
   settingsDiscovery = null;
-  settingsStartAtLoginDirty = false;
+  settingsStartAtLoginSavedRevision = settingsStartAtLoginRevision;
   settingsDraftAssigneeIds = [...(settings.assigneeIds || [])];
   settingsDraftProjectIds = Array.isArray(settings.projectIds) ? [...settings.projectIds] : null;
   settingsDraftStateNames = Array.isArray(settings.stateNames) ? [...settings.stateNames] : null;
@@ -1165,6 +1166,8 @@ async function saveSettingsForm() {
     };
     if (!member.id) throw new Error("Paste your My Work page address so Plane Pin can identify your account.");
 
+    const startupDraftRevision = settingsStartAtLoginRevision;
+    const startupDraftValue = elements.settingsStartAtLogin.checked;
     await window.planePin.saveSettings({
       ...connection,
       apiToken: elements.settingsToken.value,
@@ -1185,21 +1188,22 @@ async function saveSettingsForm() {
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
       priorityStyle: elements.settingsPriorityGradient.checked ? "gradient" : "dot",
-      ...(settingsStartAtLoginDirty ? { startAtLogin: elements.settingsStartAtLogin.checked } : {}),
+      ...(startupDraftRevision !== settingsStartAtLoginSavedRevision ? { startAtLogin: startupDraftValue } : {}),
       closeToTray: elements.settingsCloseTray.checked,
       minimizeToTray: elements.settingsMinimizeTray.checked,
       refreshMinutes: Number(elements.settingsRefreshMinutes.value),
       theme: elements.settingsThemeDark.checked ? "dark" : "light"
     });
     settings = await window.planePin.getSettings();
-    settingsStartAtLoginDirty = false;
+    const startupDraftStillCurrent = settingsStartAtLoginRevision === startupDraftRevision;
+    if (startupDraftStillCurrent) settingsStartAtLoginSavedRevision = startupDraftRevision;
     if (elements.settingsToken.value) {
       elements.settingsToken.value = "";
       elements.settingsToken.placeholder = "Saved securely — enter only to replace";
       elements.settingsTokenNote.textContent = "Leave blank to keep the encrypted token already saved.";
     }
     settingsRevision += 1;
-    applySettingsToShell();
+    applySettingsToShell({ preserveStartupDraft: !startupDraftStillCurrent });
     elements.settingsSaveStatus.textContent = "All changes saved.";
     if (!settingsView) {
       scheduleAutoRefresh();
@@ -1616,7 +1620,7 @@ function scheduleAutoRefresh() {
   }
 }
 
-function applySettingsToShell() {
+function applySettingsToShell({ preserveStartupDraft = false } = {}) {
   isMac = settings.platform === "darwin";
   document.body.classList.toggle("platform-mac", isMac);
   localiseShortcutLabels();
@@ -1626,7 +1630,7 @@ function applySettingsToShell() {
   document.body.classList.toggle("priority-gradient", settings.priorityStyle === "gradient");
   elements.preferOnTop.checked = settings.alwaysOnTop;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
-  applyLoginStartupStatus(settings);
+  if (!preserveStartupDraft) applyLoginStartupStatus(settings);
   elements.settingsCloseTray.checked = settings.closeToTray;
   elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.listTitle.textContent = filterTitle();
@@ -1743,7 +1747,7 @@ elements.settingsChangeOnCheck.addEventListener("change", () => {
 });
 elements.settingsForm.addEventListener("change", () => scheduleSettingsSave());
 elements.settingsStartAtLogin.addEventListener("change", () => {
-  settingsStartAtLoginDirty = true;
+  settingsStartAtLoginRevision += 1;
   scheduleSettingsSave();
 });
 async function runUpdateAction(forceInstall = false) {

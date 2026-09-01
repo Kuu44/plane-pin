@@ -6,6 +6,15 @@ const path = require("node:path");
 const hiddenLaunchArgument = "--hidden";
 const linuxAutostartFileName = "plane-pin.desktop";
 const macLoginStatuses = new Set(["enabled", "requires-approval", "not-registered", "not-found"]);
+const desktopBooleanKeys = new Set([
+  "DBusActivatable",
+  "Hidden",
+  "NoDisplay",
+  "StartupNotify",
+  "Terminal",
+  "X-GNOME-Autostart-enabled",
+  "X-GNOME-UsesNotifications"
+]);
 
 function quoteDesktopExec(value) {
   if (typeof value !== "string") throw new Error("The application path is invalid.");
@@ -106,9 +115,21 @@ function parseDesktopEntry(contents) {
     if (separator < 1) throw new Error("The autostart file is malformed.");
     const key = line.slice(0, separator).trim();
     if (!/^[A-Za-z0-9-]+$/.test(key)) throw new Error("The autostart file has an invalid key.");
-    entries.set(key, line.slice(separator + 1));
+    if (entries.has(key)) throw new Error(`The autostart file repeats ${key}.`);
+    entries.set(key, line.slice(separator + 1).trim());
   }
   if (!foundDesktopEntry) throw new Error("The autostart file is missing its Desktop Entry section.");
+  if (entries.get("Type") !== "Application") {
+    throw new Error("The autostart entry must declare Type=Application.");
+  }
+  if (!entries.get("Name")) throw new Error("The autostart entry must include a Name.");
+  for (const key of desktopBooleanKeys) {
+    if (!entries.has(key)) continue;
+    const value = entries.get(key).toLocaleLowerCase();
+    if (value !== "true" && value !== "false") {
+      throw new Error(`The autostart entry has an invalid Boolean value for ${key}.`);
+    }
+  }
   return entries;
 }
 
@@ -119,16 +140,14 @@ function linuxLoginStartupState(appDataPath, executablePath, fileSystem = fs) {
   }
   const target = linuxAutostartPath(appDataPath);
   if (typeof fileSystem.readFileSync !== "function") {
-    return fileSystem.existsSync(target)
-      ? { registered: true, effective: null, status: "unknown" }
-      : { registered: false, effective: false, status: "disabled" };
+    return { registered: null, effective: null, status: "unknown" };
   }
   let contents;
   try {
     contents = fileSystem.readFileSync(target, "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return { registered: false, effective: false, status: "disabled" };
-    return { registered: false, effective: null, status: "error", error: error?.message || String(error) };
+    return { registered: null, effective: null, status: "error", error: error?.message || String(error) };
   }
 
   let entries;
@@ -163,9 +182,6 @@ function linuxLoginStartupState(appDataPath, executablePath, fileSystem = fs) {
       status: "invalid",
       error: "The autostart entry points to an executable that is no longer available."
     };
-  }
-  if (entries.get("Type") && entries.get("Type") !== "Application") {
-    return { registered: true, effective: false, status: "invalid", error: "The autostart entry is not an application." };
   }
   return { registered: true, effective: true, status: "enabled" };
 }
