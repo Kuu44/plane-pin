@@ -30,7 +30,9 @@ For a workspace Home address such as `https://plane.example.com/engineering/`, s
 
 Plane Pin keeps an icon in the Windows notification area, the macOS menu bar, or the Linux system tray. Closing or minimising the window parks the app on that icon rather than ending it, so the rail stays one click away. Left-click the icon to show or hide the window; right-click it for refresh, always on top, compact cards, Settings, and Exit. Exit from that menu is the only action that really closes Plane Pin.
 
-These behaviours can be turned off individually under Settings → Window. The same section can start Plane Pin quietly at sign-in on Windows, macOS, and Linux. On a Linux desktop with no system tray, Plane Pin detects the missing icon and keeps ordinary close and minimise behaviour so the window can never be hidden beyond reach.
+These behaviours can be turned off individually under Settings → Window. The same section can start Plane Pin quietly at sign-in on Windows, macOS, and Linux. Plane Pin reports the requested preference separately from the operating system's registration and approval state. On a Linux desktop with no system tray, Plane Pin detects the missing icon and keeps ordinary close and minimise behaviour so the window can never be hidden beyond reach.
+
+On macOS, Login Items may show **Requires Approval**. Open **System Settings → General → Login Items** and allow Plane Pin. The current macOS build is unsigned and unnotarised, so it remains unverified and may still fail after approval. On Windows, if startup is blocked, open **Windows Settings → Apps → Startup**, turn on Plane Pin, and save the preference again. Linux startup uses the user XDG autostart entry and reports malformed, disabled, or stale entries instead of silently recreating them.
 
 In task-only mode the window has no title bar, so press and hold anywhere on the rail and move to reposition it. A short press is still a click and opens that task in Plane. This works on Windows, macOS, and X11 Linux sessions; native Wayland does not allow applications to reposition their own windows.
 

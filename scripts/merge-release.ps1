@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidatePattern('^(feature|fix)/[a-z0-9][a-z0-9._-]*$')]
+  [ValidatePattern('^(kuu/)?(feature|fix)/[a-z0-9][a-z0-9._-]*$')]
   [string]$Branch
 )
 

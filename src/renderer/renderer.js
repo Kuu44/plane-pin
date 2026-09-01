@@ -40,6 +40,8 @@ const elements = {
   setupBack: $("#setup-back"),
   setupNext: $("#setup-next"),
   setupError: $("#setup-error"),
+  setupStartAtLogin: $("#setup-start-at-login"),
+  setupStartAtLoginNote: $("#setup-start-at-login-note"),
   planePageUrl: $("#plane-page-url"),
   apiToken: $("#api-token"),
   tokenVisibility: $("#token-visibility"),
@@ -117,9 +119,10 @@ const stepTitles = [
   "Choose your projects",
   "Filter by workflow state",
   "Set up task checkmarks",
-  "Your viewing preferences"
+  "Your viewing preferences",
+  "Start good habits!"
 ];
-const stepActions = ["Get started", "Continue", "Test connection", "Continue", "Continue", "Continue", "Continue", "Save and show my tasks"];
+const stepActions = ["Get started", "Continue", "Test connection", "Continue", "Continue", "Continue", "Continue", "Continue", "Save and show my tasks"];
 const stateGroupLabels = {
   backlog: "Backlog",
   unstarted: "Not started",
@@ -165,6 +168,8 @@ let settingsScrollTop = 0;
 let settingsSaveTimer;
 let settingsSaveInFlight = false;
 let settingsSaveAgain = false;
+let settingsStartAtLoginRevision = 0;
+let settingsStartAtLoginSavedRevision = 0;
 const windowDrag = window.planePinDrag.createDragTracker();
 let suppressNextClick = false;
 let dragFrame = 0;
@@ -737,6 +742,41 @@ function renderOnboardingCompletion() {
   elements.setupCheckOptions.hidden = !elements.setupChangeOnCheck.checked;
 }
 
+function loginStartupStatusCopy(nextSettings = {}) {
+  const status = nextSettings.loginStartupStatus || nextSettings.loginStartup?.status || "disabled";
+  const platform = nextSettings.platform || "";
+  const location = nextSettings.trayLocation || "system tray";
+  if (status === "enabled") return `Configured: Plane Pin starts when you sign in and stays reachable in the ${location}.`;
+  if (status === "configured") return "Registered to start when you sign in. The operating system has not confirmed startup approval yet.";
+  if (status === "requires-approval") {
+    return "macOS may require approval. Open System Settings → General → Login Items and allow Plane Pin. This unsigned, unnotarised build remains unverified and may still fail after approval.";
+  }
+  if (status === "blocked") {
+    return platform === "win32"
+      ? "Windows blocked this startup entry. Open Windows Settings → Apps → Startup, turn on Plane Pin, then save again to retry."
+      : "The operating system blocked this startup entry. Turn it on in the operating system startup settings, then save again to retry.";
+  }
+  if (status === "invalid") {
+    return platform === "linux"
+      ? "The Linux autostart entry is invalid or stale. Turn this option off and on, then save to recreate it with the current app path."
+      : "The startup entry is invalid or stale. Save again to retry, or reinstall Plane Pin if the problem continues.";
+  }
+  if (status === "error") return "Plane Pin could not verify startup right now. Save again to retry; check your operating system startup settings if it continues.";
+  if (status === "not-found") return "macOS could not find the login item. Save again to retry after installing the packaged app.";
+  if (status === "not-registered") return "Plane Pin is not registered to start at sign-in yet. Save again to retry.";
+  if (status === "development") return "Development builds do not register at sign-in. Install the packaged app to use this setting.";
+  if (status === "unknown") return "Plane Pin could not confirm its startup status. Save again to retry.";
+  return nextSettings.startAtLogin
+    ? "Plane Pin is set to start at sign-in. Save again if your operating system has not approved it yet."
+    : "Plane Pin will not start automatically. You can change this later in Settings.";
+}
+
+function applyLoginStartupStatus(nextSettings) {
+  elements.settingsStartAtLogin.checked = Boolean(nextSettings.startAtLogin);
+  elements.settingsStartAtLoginNote.textContent = loginStartupStatusCopy(nextSettings);
+  elements.settingsStartAtLoginNote.dataset.status = nextSettings.loginStartupStatus || "disabled";
+}
+
 function showStep(nextStep) {
   setupStep = nextStep;
   for (const panel of document.querySelectorAll(".setup-step")) {
@@ -745,12 +785,13 @@ function showStep(nextStep) {
     panel.classList.toggle("is-active", active);
   }
   elements.setupTitle.textContent = stepTitles[setupStep];
-  elements.setupProgress.textContent = setupStep === 0 ? "Welcome" : `Step ${setupStep} of 7`;
+  elements.setupProgress.textContent = setupStep === 0 ? "Welcome" : `Step ${setupStep} of 8`;
   elements.setupNext.textContent = stepActions[setupStep];
   elements.setupBack.hidden = setupStep === 0;
   elements.setupError.textContent = "";
   requestAnimationFrame(() => {
-    const input = $(`.setup-step[data-step="${setupStep}"] input:not([type="radio"]):not([type="checkbox"])`);
+    const panel = $(`.setup-step[data-step="${setupStep}"]`);
+    const input = panel?.querySelector("input:not([type=hidden]), select, textarea, button");
     (input || elements.setupNext).focus();
   });
 }
@@ -772,6 +813,10 @@ function openOnboarding() {
   elements.profileUrl.value = settings.memberId ? `/profile/${settings.memberId}/assigned/` : "";
   elements.groupByProject.checked = settings.groupByProject;
   elements.preferOnTop.checked = settings.alwaysOnTop;
+  elements.setupStartAtLogin.checked = settings.setupComplete ? settings.startAtLogin : true;
+  elements.setupStartAtLoginNote.textContent = settings.setupComplete
+    ? loginStartupStatusCopy(settings)
+    : "Recommended. Plane Pin launches quietly at sign-in and stays reachable from the platform tray when one is available.";
   elements.setupChangeOnCheck.checked = settings.setupComplete ? settings.changeOnCheck : true;
   elements.setupCompletionSound.checked = settings.completionSound !== false;
   elements.setupCheckOptions.hidden = !elements.setupChangeOnCheck.checked;
@@ -839,6 +884,7 @@ async function advanceSetup() {
     return;
   }
   if (setupStep === 6) return showStep(7);
+  if (setupStep === 7) return showStep(8);
 
   elements.setupNext.disabled = true;
   elements.setupNext.textContent = "Saving…";
@@ -863,6 +909,7 @@ async function advanceSetup() {
       completionSound: elements.setupCompletionSound.checked,
       groupByProject: elements.groupByProject.checked,
       alwaysOnTop: elements.preferOnTop.checked,
+      startAtLogin: elements.setupStartAtLogin.checked,
       refreshMinutes: 5,
       theme: settings.theme
     });
@@ -875,7 +922,7 @@ async function advanceSetup() {
     elements.setupError.textContent = error.message;
   } finally {
     elements.setupNext.disabled = false;
-    elements.setupNext.textContent = stepActions[7];
+    elements.setupNext.textContent = stepActions[8];
   }
 }
 
@@ -1013,6 +1060,7 @@ async function testSettingsConnection() {
 
 function hydrateSettingsForm() {
   settingsDiscovery = null;
+  settingsStartAtLoginSavedRevision = settingsStartAtLoginRevision;
   settingsDraftAssigneeIds = [...(settings.assigneeIds || [])];
   settingsDraftProjectIds = Array.isArray(settings.projectIds) ? [...settings.projectIds] : null;
   settingsDraftStateNames = Array.isArray(settings.stateNames) ? [...settings.stateNames] : null;
@@ -1045,10 +1093,7 @@ function hydrateSettingsForm() {
   elements.settingsCompactCards.checked = settings.compactCards;
   elements.settingsPriorityDot.checked = settings.priorityStyle !== "gradient";
   elements.settingsPriorityGradient.checked = settings.priorityStyle === "gradient";
-  elements.settingsStartAtLogin.checked = settings.startAtLogin;
-  elements.settingsStartAtLoginNote.textContent = settings.loginStartupStatus === "requires-approval"
-    ? "Allow Plane Pin in System Settings → General → Login Items."
-    : `Launch Plane Pin quietly in the ${settings.trayLocation || "system tray"}.`;
+  applyLoginStartupStatus(settings);
   elements.settingsCloseTray.checked = settings.closeToTray;
   elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.settingsRefreshMinutes.value = String(settings.refreshMinutes);
@@ -1121,6 +1166,8 @@ async function saveSettingsForm() {
     };
     if (!member.id) throw new Error("Paste your My Work page address so Plane Pin can identify your account.");
 
+    const startupDraftRevision = settingsStartAtLoginRevision;
+    const startupDraftValue = elements.settingsStartAtLogin.checked;
     await window.planePin.saveSettings({
       ...connection,
       apiToken: elements.settingsToken.value,
@@ -1141,20 +1188,22 @@ async function saveSettingsForm() {
       alwaysOnTop: elements.settingsOnTop.checked,
       compactCards: elements.settingsCompactCards.checked,
       priorityStyle: elements.settingsPriorityGradient.checked ? "gradient" : "dot",
-      startAtLogin: elements.settingsStartAtLogin.checked,
+      ...(startupDraftRevision !== settingsStartAtLoginSavedRevision ? { startAtLogin: startupDraftValue } : {}),
       closeToTray: elements.settingsCloseTray.checked,
       minimizeToTray: elements.settingsMinimizeTray.checked,
       refreshMinutes: Number(elements.settingsRefreshMinutes.value),
       theme: elements.settingsThemeDark.checked ? "dark" : "light"
     });
     settings = await window.planePin.getSettings();
+    const startupDraftStillCurrent = settingsStartAtLoginRevision === startupDraftRevision;
+    if (startupDraftStillCurrent) settingsStartAtLoginSavedRevision = startupDraftRevision;
     if (elements.settingsToken.value) {
       elements.settingsToken.value = "";
       elements.settingsToken.placeholder = "Saved securely — enter only to replace";
       elements.settingsTokenNote.textContent = "Leave blank to keep the encrypted token already saved.";
     }
     settingsRevision += 1;
-    applySettingsToShell();
+    applySettingsToShell({ preserveStartupDraft: !startupDraftStillCurrent });
     elements.settingsSaveStatus.textContent = "All changes saved.";
     if (!settingsView) {
       scheduleAutoRefresh();
@@ -1571,7 +1620,7 @@ function scheduleAutoRefresh() {
   }
 }
 
-function applySettingsToShell() {
+function applySettingsToShell({ preserveStartupDraft = false } = {}) {
   isMac = settings.platform === "darwin";
   document.body.classList.toggle("platform-mac", isMac);
   localiseShortcutLabels();
@@ -1581,7 +1630,7 @@ function applySettingsToShell() {
   document.body.classList.toggle("priority-gradient", settings.priorityStyle === "gradient");
   elements.preferOnTop.checked = settings.alwaysOnTop;
   elements.settingsOnTop.checked = settings.alwaysOnTop;
-  elements.settingsStartAtLogin.checked = settings.startAtLogin;
+  if (!preserveStartupDraft) applyLoginStartupStatus(settings);
   elements.settingsCloseTray.checked = settings.closeToTray;
   elements.settingsMinimizeTray.checked = settings.minimizeToTray;
   elements.listTitle.textContent = filterTitle();
@@ -1697,6 +1746,10 @@ elements.settingsChangeOnCheck.addEventListener("change", () => {
   elements.settingsCheckOptions.hidden = !elements.settingsChangeOnCheck.checked;
 });
 elements.settingsForm.addEventListener("change", () => scheduleSettingsSave());
+elements.settingsStartAtLogin.addEventListener("change", () => {
+  settingsStartAtLoginRevision += 1;
+  scheduleSettingsSave();
+});
 async function runUpdateAction(forceInstall = false) {
   try {
     renderUpdateState(forceInstall || updateState.status === "available" || updateState.status === "ready"

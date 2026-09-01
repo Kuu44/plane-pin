@@ -1,8 +1,8 @@
-version: 0.15.0
+version: 0.16.0
 files:
-  - url: Plane-Pin-Setup-v0.15.0.exe
-    sha512: Xgb/o/b99KBJX76vifXRWJUC98NJcpnqQpoVu5jBpGZ22RHUOmPPzBpJ81RVx+RjbMZDNun+B6LeCxxYSi1yeQ==
-    size: 101942567
-path: Plane-Pin-Setup-v0.15.0.exe
-sha512: Xgb/o/b99KBJX76vifXRWJUC98NJcpnqQpoVu5jBpGZ22RHUOmPPzBpJ81RVx+RjbMZDNun+B6LeCxxYSi1yeQ==
-releaseDate: '2026-07-31T14:44:46.801Z'
+  - url: Plane-Pin-Setup-v0.16.0.exe
+    sha512: S95+u1NwQVX9W+Ple637uU4PY+K1nRteR4HeBj7wFl6N0V4BqaEe9/TqkDwGUTv2NvL6oOCDV4sfqRlJZY/aTA==
+    size: 101945224
+path: Plane-Pin-Setup-v0.16.0.exe
+sha512: S95+u1NwQVX9W+Ple637uU4PY+K1nRteR4HeBj7wFl6N0V4BqaEe9/TqkDwGUTv2NvL6oOCDV4sfqRlJZY/aTA==
+releaseDate: '2026-09-01T12:01:58.996Z'

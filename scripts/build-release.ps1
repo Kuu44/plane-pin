@@ -50,7 +50,18 @@ if ($LASTEXITCODE -ne 0) { throw "Source archive creation failed." }
 Get-ChildItem -LiteralPath $buildsDir -File |
   Sort-Object Name |
   ForEach-Object {
-    $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+    $stream = $null
+    $algorithm = $null
+    try {
+      $stream = [System.IO.File]::OpenRead($_.FullName)
+      $algorithm = [System.Security.Cryptography.SHA256]::Create()
+      $hashBytes = $algorithm.ComputeHash($stream)
+      $hash = [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToUpperInvariant()
+    }
+    finally {
+      if ($stream -ne $null) { $stream.Dispose() }
+      if ($algorithm -ne $null) { $algorithm.Dispose() }
+    }
     Write-Output "$($_.Name)  SHA256 $hash"
   }
 

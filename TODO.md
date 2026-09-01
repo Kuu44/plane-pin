@@ -10,7 +10,7 @@
 - [ ] Test the first real connection against the self-hosted Plane instance.
 - [ ] Review setup friction after that live test and tighten the form again.
 - [x] Add a proper app icon for the application, the tray, and the installers.
-- [ ] Sign and notarise the macOS build, and code-sign the Windows installer, before wider distribution.
+- [ ] Sign and notarise the macOS build, and code-sign the Windows installer, before wider distribution; until then macOS Login Items remains approval-limited.
 - [x] Add macOS and Linux packaging and build both on tag pushes.
 - [ ] Verify the macOS `.dmg` and the Linux `.AppImage`/`.deb` on real hardware, including the tray icon and the task-only drag.
 - [ ] Revisit task-only dragging if Electron exposes a compositor-approved native Wayland move API.
@@ -32,7 +32,7 @@
 - [x] Add dot and gradient priority appearances with dots as the default.
 - [x] Show project estimates in full and compact task rows.
 - [x] Standardise connection setup on the Plane workspace Home address.
-- [x] Start quietly at login on Windows, macOS, and Linux.
+- [x] Keep the requested launch-at-sign-in preference separate from platform registration readback on Windows, macOS, and Linux.
 - [x] Add saved member, project, and workflow-state ordering.
 - [x] Add optional member grouping without forcing project subgroups.
 - [x] Add a configurable check-to-change-state action with accessible celebration feedback.
