@@ -125,7 +125,7 @@ function parseDesktopEntry(contents) {
   if (!entries.get("Name")) throw new Error("The autostart entry must include a Name.");
   for (const key of desktopBooleanKeys) {
     if (!entries.has(key)) continue;
-    const value = entries.get(key).toLocaleLowerCase();
+    const value = entries.get(key);
     if (value !== "true" && value !== "false") {
       throw new Error(`The autostart entry has an invalid Boolean value for ${key}.`);
     }

@@ -91,6 +91,10 @@ test("rejects Linux entries without required keys, duplicate keys, or valid Bool
   assert.equal(linuxReadback(valid.replace("Name=Plane Pin\n", ""), executable).status, "invalid");
   assert.equal(linuxReadback(valid.replace("Name=Plane Pin\n", "Name=Plane Pin\nName=Another Name\n"), executable).status, "invalid");
   assert.equal(linuxReadback(valid.replace("X-GNOME-Autostart-enabled=true", "X-GNOME-Autostart-enabled=maybe"), executable).status, "invalid");
+  assert.equal(linuxReadback(valid.replace("X-GNOME-Autostart-enabled=true", "X-GNOME-Autostart-enabled=TRUE"), executable).status, "invalid");
+  assert.equal(linuxReadback(valid.replace("X-GNOME-Autostart-enabled=true", "X-GNOME-Autostart-enabled=False"), executable).status, "invalid");
+  assert.equal(linuxReadback(`${valid}\nHidden=TRUE`, executable).status, "invalid");
+  assert.equal(linuxReadback(`${valid}\nHidden=fAlSe`, executable).status, "invalid");
 });
 
 test("reports unknown Linux registration when the autostart file cannot be read", () => {
